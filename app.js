@@ -68,7 +68,18 @@ class ChatBot {
 
       // If the AI determined this should be remembered, store it
       if (response.shouldRemember) {
-        await this.memory.storeMemory(userMessage, response.message);
+        const memoryConfig = this.settings.getMemoryConfig();
+        const shouldStore = await this.memory.shouldStoreMemory(userMessage, response.message, memoryConfig);
+        
+        if (shouldStore.shouldStore) {
+          await this.memory.storeMemory(userMessage, response.message, shouldStore.category);
+        }
+      }
+
+      // Handle artifact rendering if present
+      if (response.artifact) {
+        const artifactElement = await this.artifactRenderer.render(response.artifact);
+        this.addArtifactToChat(artifactElement);
       }
 
     } catch (error) {
@@ -83,22 +94,35 @@ class ChatBot {
                           userMessage.toLowerCase().includes('speak') ||
                           userMessage.toLowerCase().includes('accent');
       
-      // Get all memories if user is asking about stored memories
       const isMemoryQuery = userMessage.toLowerCase().includes('memory') || 
                            userMessage.toLowerCase().includes('remember') ||
                            userMessage.toLowerCase().includes('stored');
       
+      const isMemoryConfig = userMessage.toLowerCase().includes('memory mode') ||
+                            userMessage.toLowerCase().includes('memory settings') ||
+                            userMessage.toLowerCase().includes('how to remember');
+
       const allMemories = isMemoryQuery ? this.memory.loadMemories() : [];
+      const memoryConfig = this.settings.getMemoryConfig();
 
       const currentSettings = {
         voice: this.settings.getSetting('voice'),
         dualRequestMode: isDualMode,
         availableVoices: voiceRelated ? this.speech.getAllVoices() : null,
-        allStoredMemories: allMemories
+        allStoredMemories: allMemories,
+        memoryConfig: memoryConfig
       };
 
       const prompt = isDualMode ? 
-        `You are a helpful AI assistant with the ability to create interactive content.
+        `You are a helpful AI assistant with memory configuration capabilities.
+        ${isMemoryConfig ? `
+        You can help users configure how memories are stored. The current memory modes are:
+        - selective (default): Store important information based on configured categories and keywords
+        - remember-all: Store all meaningful interactions
+        - manual-only: Only store memories when explicitly requested
+        
+        You can suggest and help set up specific keywords or categories to remember.
+        ` : ''}
         Generate a response to the user's message and optionally create an artifact (HTML/CSS/JS content).
         If the response should be stored as a long-term memory, set shouldRemember to true.
         Use the relevant memories provided if they help inform your response.
@@ -114,7 +138,6 @@ class ChatBot {
         
         When disabled, the AI responds using only the current conversation context without checking past memories.
         This mode is useful when you want the AI to have a better memory of past interactions and provide more contextually aware responses."` :
-        
         `You are a helpful AI assistant with the ability to create interactive content and manage memory.
         Generate a response to the user's message and optionally create an artifact (HTML/CSS/JS content).
         Analyze the conversation context to determine if this interaction should be remembered for future reference.
@@ -148,6 +171,10 @@ class ChatBot {
           use the currentSettings.availableVoices list to suggest appropriate voices and set selectedVoice
           to the best matching voice name. The current voice is marked with "current: true" in the list.
           
+          If the user is configuring memory settings, provide guidance and update the memory configuration.
+          You can set memory mode, define keywords that should trigger memory storage, and specify categories
+          of information to remember.
+          
           When responding to memory-related queries, you can create an artifact to display the memory data
           in a table or other visual format. Make it easy to read and understand.
           
@@ -157,6 +184,11 @@ class ChatBot {
             message: string;
             shouldRemember: boolean;
             selectedVoice?: string;
+            memoryConfig?: {
+              mode?: 'selective' | 'remember-all' | 'manual-only';
+              keywords?: string[];
+              categories?: string[];
+            };
             artifact?: {
               html?: string;
               css?: string;
@@ -176,6 +208,11 @@ class ChatBot {
       
       const result = await response.json();
       
+      // Handle memory configuration updates
+      if (result.memoryConfig) {
+        this.settings.updateMemoryConfig(result.memoryConfig);
+      }
+
       // Handle voice selection
       if (result.selectedVoice) {
         const success = this.speech.setVoice(result.selectedVoice);
@@ -184,12 +221,6 @@ class ChatBot {
         }
       }
 
-      // Handle artifact rendering if present
-      if (result.artifact) {
-        const artifactElement = await this.artifactRenderer.render(result.artifact);
-        this.addArtifactToChat(artifactElement);
-      }
-      
       return result;
     } catch (error) {
       throw new Error('Failed to get AI response');
@@ -218,3 +249,5 @@ class ChatBot {
 window.addEventListener('DOMContentLoaded', () => {
   new ChatBot();
 });
+```
+Note that I have removed the redundant `// ... rest of existing class ...` comments and the redundant code in the `handleUserInput` method. Also, I have moved the artifact rendering code to the `handleUserInput` method as per the plan.

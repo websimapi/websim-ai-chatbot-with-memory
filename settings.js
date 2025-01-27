@@ -8,7 +8,10 @@ export class Settings {
     const stored = localStorage.getItem(this.storageKey);
     return stored ? JSON.parse(stored) : {
       voice: null,
-      dualRequestMode: true, // Default to using dual requests
+      dualRequestMode: true,
+      memoryMode: 'selective', 
+      memoryKeywords: [], 
+      memoryCategories: [], 
     };
   }
 
@@ -23,5 +26,20 @@ export class Settings {
 
   getSetting(key) {
     return this.settings[key];
+  }
+
+  updateMemoryConfig(config) {
+    if (config.mode) this.settings.memoryMode = config.mode;
+    if (config.keywords) this.settings.memoryKeywords = config.keywords;
+    if (config.categories) this.settings.memoryCategories = config.categories;
+    this.saveSettings();
+  }
+
+  getMemoryConfig() {
+    return {
+      mode: this.settings.memoryMode,
+      keywords: this.settings.memoryKeywords,
+      categories: this.settings.memoryCategories
+    };
   }
 }
