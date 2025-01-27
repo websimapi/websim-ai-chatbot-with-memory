@@ -247,7 +247,5 @@ class ChatBot {
 
 // Initialize the chatbot when the page loads
 window.addEventListener('DOMContentLoaded', () => {
-  new ChatBot();
+  window.chatBot = new ChatBot();  // Make it globally accessible
 });
-```
-Note that I have removed the redundant `// ... rest of existing class ...` comments and the redundant code in the `handleUserInput` method. Also, I have moved the artifact rendering code to the `handleUserInput` method as per the plan.
