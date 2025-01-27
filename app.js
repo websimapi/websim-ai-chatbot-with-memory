@@ -121,6 +121,11 @@ class ChatBot {
           
           You can suggest and help set up specific keywords or categories to remember.
           ` : ''}
+
+          Important: If the user asks for any HTML, CSS, or JavaScript demonstrations, ALWAYS provide them as
+          a separate artifact, not in the conversation message. The artifact should be well-structured and
+          complete. The conversation message should explain what the artifact does.
+          
           Generate a response to the user's message and optionally create an artifact (HTML/CSS/JS content).
           If the response should be stored as a long-term memory, set shouldRemember to true.
           Use the relevant memories provided if they help inform your response.
