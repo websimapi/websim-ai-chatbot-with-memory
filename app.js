@@ -34,6 +34,12 @@ class ChatBot {
     });
   }
 
+  containsHTML(text) {
+    // Basic HTML tag detection regex
+    const htmlRegex = /<[^>]*>.*?<\/[^>]*>|<[^/>][^>]*\/>/;
+    return htmlRegex.test(text);
+  }
+
   async handleUserInput() {
     const userMessage = this.userInput.value.trim();
     if (!userMessage) return;
@@ -56,9 +62,27 @@ class ChatBot {
       
       this.conversationContext.push({ role: 'assistant', content: response.message });
       
-      this.addMessageToChat(response.message, 'bot');
-      
-      await this.speech.speak(response.message);
+      // Handle the message content
+      if (this.containsHTML(response.message)) {
+        // If message contains HTML, create an artifact for it
+        const artifactContent = {
+          html: response.message,
+          containerId: `auto-artifact-${Date.now()}`
+        };
+        const artifactElement = await this.artifactRenderer.render(artifactContent);
+        this.addArtifactToChat(artifactElement);
+        
+        // Extract text content for TTS (strip HTML tags)
+        const textContent = response.message.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (textContent) {
+          this.addMessageToChat(textContent, 'bot');
+          await this.speech.speak(textContent);
+        }
+      } else {
+        // Regular text message
+        this.addMessageToChat(response.message, 'bot');
+        await this.speech.speak(response.message);
+      }
 
       if (response.shouldRemember) {
         const memoryConfig = this.settings.getMemoryConfig();
@@ -69,6 +93,7 @@ class ChatBot {
         }
       }
 
+      // Handle any explicit artifacts in the response
       if (response.artifact) {
         const artifactElement = await this.artifactRenderer.render(response.artifact);
         this.addArtifactToChat(artifactElement);
