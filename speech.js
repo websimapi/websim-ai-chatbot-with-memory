@@ -55,12 +55,23 @@ export class SpeechHandler {
   }
 
   splitIntoSentences(text) {
+    // Handle null/undefined text
+    if (!text) return [];
+    
+    // Ensure text is a string
+    const textStr = String(text);
+    
     // Split text into sentences using regex
     // This handles common sentence endings (., !, ?) and preserves newlines
-    return text.split(/(?<=[.!?])\s+|\n+/).filter(sentence => sentence.trim().length > 0);
+    return textStr.split(/(?<=[.!?])\s+|\n+/).filter(sentence => sentence.trim().length > 0);
   }
 
   async speakSentence(sentence) {
+    // Skip empty sentences
+    if (!sentence || !sentence.trim()) {
+      return Promise.resolve();
+    }
+
     return new Promise((resolve, reject) => {
       const utterance = new SpeechSynthesisUtterance(sentence);
       utterance.voice = this.voice;
@@ -84,6 +95,9 @@ export class SpeechHandler {
   }
 
   async speak(text) {
+    // Handle null/undefined text
+    if (!text) return;
+    
     // Cancel any ongoing speech
     this.cancel();
     
