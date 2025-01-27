@@ -41,7 +41,6 @@ class ChatBot {
     this.addMessageToChat(userMessage, 'user');
     this.userInput.value = '';
 
-    // Add user message to conversation context
     this.conversationContext.push({ role: 'user', content: userMessage });
 
     const isDualMode = this.settings.getSetting('dualRequestMode');
@@ -49,24 +48,18 @@ class ChatBot {
     try {
       let relevantMemories = [];
       
-      // Only fetch memories in dual request mode
       if (isDualMode) {
         relevantMemories = await this.memory.getRelevantMemories(userMessage);
       }
       
-      // Get AI response
       const response = await this.getAIResponse(userMessage, relevantMemories, isDualMode);
       
-      // Add bot response to conversation context
       this.conversationContext.push({ role: 'assistant', content: response.message });
       
-      // Add message to chat
       this.addMessageToChat(response.message, 'bot');
       
-      // Speak the response
       await this.speech.speak(response.message);
 
-      // If the AI determined this should be remembered, store it
       if (response.shouldRemember) {
         const memoryConfig = this.settings.getMemoryConfig();
         const shouldStore = await this.memory.shouldStoreMemory(userMessage, response.message, memoryConfig);
@@ -76,7 +69,6 @@ class ChatBot {
         }
       }
 
-      // Handle artifact rendering if present
       if (response.artifact) {
         const artifactElement = await this.artifactRenderer.render(response.artifact);
         this.addArtifactToChat(artifactElement);
@@ -113,51 +105,6 @@ class ChatBot {
         memoryConfig: memoryConfig
       };
 
-      const prompt = isDualMode ? 
-        `You are a helpful AI assistant with memory configuration capabilities.
-        ${isMemoryConfig ? `
-        You can help users configure how memories are stored. The current memory modes are:
-        - selective (default): Store important information based on configured categories and keywords
-        - remember-all: Store all meaningful interactions
-        - manual-only: Only store memories when explicitly requested
-        
-        You can suggest and help set up specific keywords or categories to remember.
-        ` : ''}
-        Generate a response to the user's message and optionally create an artifact (HTML/CSS/JS content).
-        If the response should be stored as a long-term memory, set shouldRemember to true.
-        Use the relevant memories provided if they help inform your response.
-        
-        If the user asks about memory or stored data, you have access to allStoredMemories which contains
-        all memories stored in localStorage. You can create an artifact to display this data in a nice format,
-        or include it in your response.
-        
-        If the user asks about Dual Request Mode or what it means, explain that:
-        "Dual Request Mode means the AI makes two separate analyses for each response:
-        1. First, it analyzes your message to find relevant memories from past conversations
-        2. Then, it uses those memories alongside the current conversation to give you a more informed response
-        
-        When disabled, the AI responds using only the current conversation context without checking past memories.
-        This mode is useful when you want the AI to have a better memory of past interactions and provide more contextually aware responses."` :
-        `You are a helpful AI assistant with the ability to create interactive content and manage memory.
-        Generate a response to the user's message and optionally create an artifact (HTML/CSS/JS content).
-        Analyze the conversation context to determine if this interaction should be remembered for future reference.
-        
-        If the user asks about memory or stored data, you have access to allStoredMemories which contains
-        all memories stored in localStorage. You can create an artifact to display this data in a nice format,
-        or include it in your response.
-        
-        If you think this interaction contains important information that could be relevant later,
-        set shouldRemember to true.
-        
-        If the user asks about Dual Request Mode or what it means, explain that:
-        "Dual Request Mode is currently disabled. When enabled, it allows me to make two separate analyses:
-        1. First, I analyze your message to find relevant memories from past conversations
-        2. Then, I use those memories alongside the current conversation to give you a more informed response
-        
-        Currently, I'm operating in single request mode, which means I'm using only our current conversation context
-        without checking past memories. You can enable Dual Request Mode using the toggle in the top-right corner
-        if you'd like me to include relevant past memories in my responses."`;
-
       const response = await fetch('/api/ai_completion', {
         method: 'POST',
         headers: {
@@ -165,20 +112,38 @@ class ChatBot {
           'Accept': 'application/json',
         },
         body: JSON.stringify({
-          prompt: prompt + `
+          prompt: `You are a helpful AI assistant with memory configuration capabilities.
+          ${isMemoryConfig ? `
+          You can help users configure how memories are stored. The current memory modes are:
+          - selective (default): Store important information based on configured categories and keywords
+          - remember-all: Store all meaningful interactions
+          - manual-only: Only store memories when explicitly requested
           
-          If the user asks about changing voices or mentions anything related to voice/speaking,
-          use the currentSettings.availableVoices list to suggest appropriate voices and set selectedVoice
-          to the best matching voice name. The current voice is marked with "current: true" in the list.
+          You can suggest and help set up specific keywords or categories to remember.
+          ` : ''}
+          Generate a response to the user's message and optionally create an artifact (HTML/CSS/JS content).
+          If the response should be stored as a long-term memory, set shouldRemember to true.
+          Use the relevant memories provided if they help inform your response.
           
-          If the user is configuring memory settings, provide guidance and update the memory configuration.
-          You can set memory mode, define keywords that should trigger memory storage, and specify categories
-          of information to remember.
+          If the user asks about memory or stored data, you have access to allStoredMemories which contains
+          all memories stored in localStorage. You can create an artifact to display this data in a nice format,
+          or include it in your response.
           
-          When responding to memory-related queries, you can create an artifact to display the memory data
-          in a table or other visual format. Make it easy to read and understand.
+          If the user asks about Dual Request Mode or what it means, explain that:
+          ${isDualMode ? 
+          `"Dual Request Mode means the AI makes two separate analyses for each response:
+          1. First, it analyzes your message to find relevant memories from past conversations
+          2. Then, it uses those memories alongside the current conversation to give you a more informed response
           
-          If the user requests or would benefit from visual/interactive content, create an appropriate artifact.
+          When disabled, the AI responds using only the current conversation context without checking past memories.
+          This mode is useful when you want the AI to have a better memory of past interactions and provide more contextually aware responses."` :
+          `"Dual Request Mode is currently disabled. When enabled, it allows me to make two separate analyses:
+          1. First, I analyze your message to find relevant memories from past conversations
+          2. Then, I use those memories alongside the current conversation to give you a more informed response
+          
+          Currently, I'm operating in single request mode, which means I'm using only our current conversation context
+          without checking past memories. You can enable Dual Request Mode using the toggle in the top-right corner
+          if you'd like me to include relevant past memories in my responses."`}
           
           interface Response {
             message: string;
@@ -195,8 +160,7 @@ class ChatBot {
               js?: string;
               containerId?: string;
             };
-          }
-          `,
+          }`,
           data: {
             message: userMessage,
             context: this.conversationContext,
@@ -208,12 +172,10 @@ class ChatBot {
       
       const result = await response.json();
       
-      // Handle memory configuration updates
       if (result.memoryConfig) {
         this.settings.updateMemoryConfig(result.memoryConfig);
       }
 
-      // Handle voice selection
       if (result.selectedVoice) {
         const success = this.speech.setVoice(result.selectedVoice);
         if (!success) {
@@ -242,10 +204,9 @@ class ChatBot {
     this.chatHistory.appendChild(artifactContainer);
     this.chatHistory.scrollTop = this.chatHistory.scrollHeight;
   }
-
 }
 
 // Initialize the chatbot when the page loads
 window.addEventListener('DOMContentLoaded', () => {
-  window.chatBot = new ChatBot();  // Make it globally accessible
+  new ChatBot();
 });
