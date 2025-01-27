@@ -36,9 +36,22 @@ export class ChatMemory {
         body: JSON.stringify({
           prompt: `Given the memory configuration and the current interaction, determine if this should be stored as a memory.
           Consider the memory mode, any specified keywords, and categories.
-          If in manual-only mode, only return true if the user explicitly requested to remember something.
-          If in remember-all mode, return true unless the interaction is purely conversational with no meaningful content.
-          If in selective mode, analyze the content for importance based on the configured categories and keywords.
+          
+          Memory Modes:
+          - manual-only: Only store when user explicitly requests
+          - remember-all: Store all meaningful interactions
+          - selective: Store based on keywords and categories
+          
+          Memory Config:
+          ${JSON.stringify(memoryConfig, null, 2)}
+          
+          User Message: "${userMessage}"
+          Bot Response: "${botResponse}"
+          
+          Rules:
+          1. For manual-only: Only return true if user explicitly mentions remembering/storing
+          2. For remember-all: Return true unless purely conversational
+          3. For selective: Check against keywords and categories
           
           interface Response {
             shouldStore: boolean;

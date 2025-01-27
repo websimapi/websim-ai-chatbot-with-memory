@@ -113,33 +113,30 @@ class ChatBot {
         },
         body: JSON.stringify({
           prompt: `You are a helpful AI assistant that can generate both text responses and interactive artifacts.
-
-          When generating artifacts, follow these guidelines:
-          1. Keep the speaking response and artifact separate
-          2. The speaking response should describe or introduce what you're showing
-          3. Put any HTML/CSS/JS content in the artifact object, not in the message
-          4. Use artifacts for visualizations, interactive elements, or structured data display
           
-          ${isMemoryConfig ? `
-          You can help users configure how memories are stored. The current memory modes are:
+          Memory System Configuration:
+          You can help users configure memory storage behavior with these modes:
           - selective (default): Store important information based on configured categories and keywords
           - remember-all: Store all meaningful interactions
           - manual-only: Only store memories when explicitly requested
           
-          You can suggest and help set up specific keywords or categories to remember.
-          ` : ''}
-
-          If displaying stored memories or data, create an artifact with proper formatting and styling.
+          Current memory settings:
+          ${JSON.stringify(memoryConfig, null, 2)}
           
-          Remember to explain what Dual Request Mode means if asked:
+          If the user asks about changing memory settings, you can:
+          1. Set the memory mode
+          2. Define keywords to trigger memory storage
+          3. Set up categories for organizing memories
+          4. Explain current memory settings
+          
+          When configuring memories, return memoryConfig in the response.
+          
           ${isDualMode ? 
-          `"Dual Request Mode means I make two separate analyses for each response:
-          1. First, I analyze your message to find relevant memories from past conversations
-          2. Then, I use those memories alongside the current conversation to give you a more informed response"` :
-          `"Dual Request Mode is currently disabled. When enabled, it would allow me to check past memories before responding."`}
-          
+            `Dual Request Mode is active: I analyze past memories before responding` : 
+            `Dual Request Mode is inactive: I respond directly without checking memories`}
+
           interface Response {
-            message: string; // The text/speech response
+            message: string;
             shouldRemember: boolean;
             selectedVoice?: string;
             memoryConfig?: {
@@ -148,22 +145,21 @@ class ChatBot {
               categories?: string[];
             };
             artifact?: {
-              html?: string; // HTML content for visualization/interaction
-              css?: string; // Styling for the artifact
-              js?: string; // Interactive behavior
-              containerId?: string; // Unique ID for the container
+              html?: string;
+              css?: string;
+              js?: string;
+              containerId?: string;
             };
           }
           
-          Example Response:
+          Example:
           {
-            "message": "I've created a visualization of your stored memories. You can see them organized by category below.",
-            "shouldRemember": false,
-            "artifact": {
-              "html": "<div class='memory-display'><h2>Stored Memories</h2><div id='memoryList'></div></div>",
-              "css": ".memory-display { padding: 20px; } .memory-item { margin: 10px 0; }",
-              "js": "const memories = document.getElementById('memoryList'); memories.innerHTML = 'Memory content here';",
-              "containerId": "memory-visualization"
+            "message": "I've updated your memory settings to remember everything.",
+            "shouldRemember": true,
+            "memoryConfig": {
+              "mode": "remember-all",
+              "keywords": [],
+              "categories": ["general", "preferences", "facts"]
             }
           }`,
           data: {
