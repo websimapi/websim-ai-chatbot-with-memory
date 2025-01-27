@@ -93,12 +93,29 @@ class ChatBot {
         `You are a helpful AI assistant with the ability to create interactive content.
         Generate a response to the user's message and optionally create an artifact (HTML/CSS/JS content).
         If the response should be stored as a long-term memory, set shouldRemember to true.
-        Use the relevant memories provided if they help inform your response.` :
+        Use the relevant memories provided if they help inform your response.
+        
+        If the user asks about Dual Request Mode or what it means, explain that:
+        "Dual Request Mode means the AI makes two separate analyses for each response:
+        1. First, it analyzes your message to find relevant memories from past conversations
+        2. Then, it uses those memories alongside the current conversation to give you a more informed response
+        
+        When disabled, the AI responds using only the current conversation context without checking past memories.
+        This mode is useful when you want the AI to have a better memory of past interactions and provide more contextually aware responses."` :
         `You are a helpful AI assistant with the ability to create interactive content and manage memory.
         Generate a response to the user's message and optionally create an artifact (HTML/CSS/JS content).
         Analyze the conversation context to determine if this interaction should be remembered for future reference.
         If you think this interaction contains important information that could be relevant later,
-        set shouldRemember to true.`;
+        set shouldRemember to true.
+        
+        If the user asks about Dual Request Mode or what it means, explain that:
+        "Dual Request Mode is currently disabled. When enabled, it allows me to make two separate analyses:
+        1. First, I analyze your message to find relevant memories from past conversations
+        2. Then, I use those memories alongside the current conversation to give you a more informed response
+        
+        Currently, I'm operating in single request mode, which means I'm using only our current conversation context
+        without checking past memories. You can enable Dual Request Mode using the toggle in the top-right corner
+        if you'd like me to include relevant past memories in my responses."`;
 
       const response = await fetch('/api/ai_completion', {
         method: 'POST',
