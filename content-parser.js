@@ -12,10 +12,11 @@ export class ContentParser {
     const jsBlockRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
     const inlineStyleRegex = /style=["'](.*?)["']/gi;
     const inlineJsRegex = /on\w+=['"](.*?)['"]/gi;
+    const standaloneCSS = /(\{[^{}]*\})|([^{}]+\{[^{}]*\})/g;
 
     // Check if the text contains any code
     const hasHTML = htmlRegex.test(text);
-    const hasCSS = cssBlockRegex.test(text) || inlineStyleRegex.test(text);
+    const hasCSS = cssBlockRegex.test(text) || inlineStyleRegex.test(text) || standaloneCSS.test(text);
     const hasJS = jsBlockRegex.test(text) || inlineJsRegex.test(text);
 
     if (hasHTML || hasCSS || hasJS) {
@@ -34,8 +35,21 @@ export class ContentParser {
         cssMatches.push(match[1]);
         text = text.replace(match[0], ''); // Remove the style block
       }
-      if (cssMatches.length) {
-        result.artifact.css = cssMatches.join('\n');
+
+      // Extract standalone CSS (curly brace blocks)
+      let cssText = text;
+      let standaloneMatches = [];
+      while ((match = standaloneCSS.exec(cssText)) !== null) {
+        // Verify this is actually CSS by checking for common CSS patterns
+        const potentialCSS = match[0];
+        if (ContentParser.looksLikeCSS(potentialCSS)) {
+          standaloneMatches.push(potentialCSS);
+          text = text.replace(potentialCSS, ''); // Remove the CSS block
+        }
+      }
+
+      if (cssMatches.length || standaloneMatches.length) {
+        result.artifact.css = [...cssMatches, ...standaloneMatches].join('\n');
       }
 
       // Extract JavaScript from <script> blocks
@@ -51,13 +65,30 @@ export class ContentParser {
       // The remaining HTML content
       result.artifact.html = text;
 
-      // Extract plain text by removing all HTML tags
-      result.plainText = text.replace(/<[^>]*>/g, ' ')
-                            .replace(/\s+/g, ' ')
-                            .trim();
+      // Extract plain text by removing all HTML tags and cleaning up
+      result.plainText = text
+        .replace(/<[^>]*>/g, ' ')           // Remove HTML tags
+        .replace(/\{[^{}]*\}/g, '')         // Remove CSS curly brace blocks
+        .replace(/\s+/g, ' ')               // Normalize whitespace
+        .replace(/\b\w+:\s*[^;]+;/g, '')    // Remove CSS property declarations
+        .replace(/^\s+|\s+$/g, '');         // Trim
     }
 
     return result;
+  }
+
+  static looksLikeCSS(text) {
+    // Common CSS indicators
+    const cssPatterns = [
+      /[#.][a-zA-Z-_][a-zA-Z0-9-_]*\s*\{/,  // Class or ID selector
+      /\b(margin|padding|border|color|background|font|width|height|display|position):/i,  // Common CSS properties
+      /\b(px|em|rem|vh|vw|%)\b/,  // Common CSS units
+      /\b(solid|dashed|dotted|none|block|flex|grid|absolute|relative)\b/,  // Common CSS values
+      /[@]?(media|keyframes|import|font-face)\b/  // CSS at-rules
+    ];
+
+    // Check if the text contains any CSS-like patterns
+    return cssPatterns.some(pattern => pattern.test(text));
   }
 
   static isInteractive(content) {
