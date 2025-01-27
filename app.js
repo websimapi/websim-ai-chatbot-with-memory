@@ -59,6 +59,13 @@ class ChatBot {
 
   async getAIResponse(userMessage, relevantMemories) {
     try {
+      // If the message contains voice-related keywords, get available voices
+      const voiceRelated = userMessage.toLowerCase().includes('voice') || 
+                          userMessage.toLowerCase().includes('speak') ||
+                          userMessage.toLowerCase().includes('accent');
+      
+      const availableVoices = voiceRelated ? this.speech.getAllVoices() : null;
+
       const response = await fetch('/api/ai_completion', {
         method: 'POST',
         headers: {
@@ -70,25 +77,43 @@ class ChatBot {
           If the response should be stored as a long-term memory, set shouldRemember to true.
           Use the relevant memories provided if they help inform your response.
           
+          If the user asks about changing voices or mentions anything related to voice/speaking,
+          use the availableVoices list to suggest appropriate voices and set selectedVoice
+          to the best matching voice name.
+          
           interface Response {
             message: string;
             shouldRemember: boolean;
+            selectedVoice?: string; // Voice name to switch to, if applicable
           }
           
+          Example response for voice request:
           {
-            "message": "I'd be happy to help you with that! Based on our previous conversation about dogs, I think...",
-            "shouldRemember": true
+            "message": "I have several voices available. Based on your request for a British accent, I'd recommend using 'Microsoft George - English (United Kingdom)'. I've switched to that voice now. How does this sound?",
+            "shouldRemember": false,
+            "selectedVoice": "Microsoft George - English (United Kingdom)"
           }
           `,
           data: {
             message: userMessage,
             context: this.conversationContext,
-            relevantMemories: relevantMemories
+            relevantMemories: relevantMemories,
+            availableVoices: availableVoices
           }
         }),
       });
       
-      return await response.json();
+      const result = await response.json();
+      
+      // If the AI selected a new voice, try to set it
+      if (result.selectedVoice) {
+        const success = this.speech.setVoice(result.selectedVoice);
+        if (!success) {
+          result.message += "\n(Note: I wasn't able to switch to the selected voice. I'll continue using my current voice.)";
+        }
+      }
+      
+      return result;
     } catch (error) {
       throw new Error('Failed to get AI response');
     }

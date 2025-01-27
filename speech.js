@@ -20,6 +20,24 @@ export class SpeechHandler {
     ) || voices[0];
   }
 
+  getAllVoices() {
+    return speechSynthesis.getVoices().map(voice => ({
+      name: voice.name,
+      lang: voice.lang,
+      isLocal: voice.localService
+    }));
+  }
+
+  setVoice(voiceName) {
+    const voices = speechSynthesis.getVoices();
+    const newVoice = voices.find(v => v.name === voiceName);
+    if (newVoice) {
+      this.voice = newVoice;
+      return true;
+    }
+    return false;
+  }
+
   async speak(text) {
     // Cancel any ongoing speech
     this.synthesis.cancel();
