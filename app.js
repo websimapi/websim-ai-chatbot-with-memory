@@ -1,10 +1,12 @@
 import { ChatMemory } from './memory.js';
 import { SpeechHandler } from './speech.js';
+import { ArtifactRenderer } from './artifact-renderer.js';
 
 class ChatBot {
   constructor() {
     this.memory = new ChatMemory();
     this.speech = new SpeechHandler();
+    this.artifactRenderer = new ArtifactRenderer();
     this.chatHistory = document.getElementById('chatHistory');
     this.userInput = document.getElementById('userInput');
     this.sendBtn = document.getElementById('sendBtn');
@@ -59,7 +61,6 @@ class ChatBot {
 
   async getAIResponse(userMessage, relevantMemories) {
     try {
-      // If the message contains voice-related keywords, get available voices
       const voiceRelated = userMessage.toLowerCase().includes('voice') || 
                           userMessage.toLowerCase().includes('speak') ||
                           userMessage.toLowerCase().includes('accent');
@@ -73,7 +74,8 @@ class ChatBot {
           'Accept': 'application/json',
         },
         body: JSON.stringify({
-          prompt: `You are a helpful AI assistant. Generate a response to the user's message.
+          prompt: `You are a helpful AI assistant with the ability to create interactive content.
+          Generate a response to the user's message and optionally create an artifact (HTML/CSS/JS content).
           If the response should be stored as a long-term memory, set shouldRemember to true.
           Use the relevant memories provided if they help inform your response.
           
@@ -81,17 +83,30 @@ class ChatBot {
           use the availableVoices list to suggest appropriate voices and set selectedVoice
           to the best matching voice name.
           
+          If the user requests or would benefit from visual/interactive content, create an appropriate artifact.
+          
           interface Response {
             message: string;
             shouldRemember: boolean;
             selectedVoice?: string; // Voice name to switch to, if applicable
+            artifact?: {
+              html?: string; // HTML content
+              css?: string;  // CSS styles
+              js?: string;   // JavaScript code
+              containerId?: string; // ID for the container element
+            };
           }
           
-          Example response for voice request:
+          Example response with artifact:
           {
-            "message": "I have several voices available. Based on your request for a British accent, I'd recommend using 'Microsoft George - English (United Kingdom)'. I've switched to that voice now. How does this sound?",
+            "message": "I've created a simple interactive counter for you:",
             "shouldRemember": false,
-            "selectedVoice": "Microsoft George - English (United Kingdom)"
+            "artifact": {
+              "html": "<div id='counter-container'><button id='increment'>Count: 0</button></div>",
+              "css": "#counter-container { padding: 20px; text-align: center; } #increment { padding: 10px 20px; }",
+              "js": "let count = 0; document.getElementById('increment').addEventListener('click', () => { count++; document.getElementById('increment').textContent = 'Count: ' + count; });",
+              "containerId": "counter-container"
+            }
           }
           `,
           data: {
@@ -105,12 +120,18 @@ class ChatBot {
       
       const result = await response.json();
       
-      // If the AI selected a new voice, try to set it
+      // Handle voice selection
       if (result.selectedVoice) {
         const success = this.speech.setVoice(result.selectedVoice);
         if (!success) {
           result.message += "\n(Note: I wasn't able to switch to the selected voice. I'll continue using my current voice.)";
         }
+      }
+
+      // Handle artifact rendering if present
+      if (result.artifact) {
+        const artifactElement = await this.artifactRenderer.render(result.artifact);
+        this.addArtifactToChat(artifactElement);
       }
       
       return result;
@@ -126,6 +147,15 @@ class ChatBot {
     this.chatHistory.appendChild(messageDiv);
     this.chatHistory.scrollTop = this.chatHistory.scrollHeight;
   }
+
+  addArtifactToChat(artifactElement) {
+    const artifactContainer = document.createElement('div');
+    artifactContainer.classList.add('message', 'bot-message', 'artifact-container');
+    artifactContainer.appendChild(artifactElement);
+    this.chatHistory.appendChild(artifactContainer);
+    this.chatHistory.scrollTop = this.chatHistory.scrollHeight;
+  }
+
 }
 
 // Initialize the chatbot when the page loads

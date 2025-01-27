@@ -68,3 +68,39 @@ body {
 #sendBtn:hover {
   background: #0056b3;
 }
+
+.artifact-container {
+  width: 90% !important;
+  max-width: 90% !important;
+  background: white !important;
+  border: 1px solid #dee2e6;
+  padding: 15px !important;
+  margin: 10px auto !important;
+}
+
+.artifact-wrapper {
+  width: 100%;
+  min-height: 50px;
+  background: white;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.artifact-wrapper iframe,
+.artifact-wrapper img,
+.artifact-wrapper video {
+  max-width: 100%;
+  height: auto;
+}
+
+.artifact-wrapper button,
+.artifact-wrapper input,
+.artifact-wrapper select {
+  margin: 5px;
+  padding: 8px;
+}
+
+.artifact-wrapper canvas {
+  max-width: 100%;
+  height: auto;
+}
