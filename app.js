@@ -83,10 +83,18 @@ class ChatBot {
                           userMessage.toLowerCase().includes('speak') ||
                           userMessage.toLowerCase().includes('accent');
       
+      // Get all memories if user is asking about stored memories
+      const isMemoryQuery = userMessage.toLowerCase().includes('memory') || 
+                           userMessage.toLowerCase().includes('remember') ||
+                           userMessage.toLowerCase().includes('stored');
+      
+      const allMemories = isMemoryQuery ? this.memory.loadMemories() : [];
+
       const currentSettings = {
         voice: this.settings.getSetting('voice'),
         dualRequestMode: isDualMode,
-        availableVoices: voiceRelated ? this.speech.getAllVoices() : null
+        availableVoices: voiceRelated ? this.speech.getAllVoices() : null,
+        allStoredMemories: allMemories
       };
 
       const prompt = isDualMode ? 
@@ -95,6 +103,10 @@ class ChatBot {
         If the response should be stored as a long-term memory, set shouldRemember to true.
         Use the relevant memories provided if they help inform your response.
         
+        If the user asks about memory or stored data, you have access to allStoredMemories which contains
+        all memories stored in localStorage. You can create an artifact to display this data in a nice format,
+        or include it in your response.
+        
         If the user asks about Dual Request Mode or what it means, explain that:
         "Dual Request Mode means the AI makes two separate analyses for each response:
         1. First, it analyzes your message to find relevant memories from past conversations
@@ -102,9 +114,15 @@ class ChatBot {
         
         When disabled, the AI responds using only the current conversation context without checking past memories.
         This mode is useful when you want the AI to have a better memory of past interactions and provide more contextually aware responses."` :
+        
         `You are a helpful AI assistant with the ability to create interactive content and manage memory.
         Generate a response to the user's message and optionally create an artifact (HTML/CSS/JS content).
         Analyze the conversation context to determine if this interaction should be remembered for future reference.
+        
+        If the user asks about memory or stored data, you have access to allStoredMemories which contains
+        all memories stored in localStorage. You can create an artifact to display this data in a nice format,
+        or include it in your response.
+        
         If you think this interaction contains important information that could be relevant later,
         set shouldRemember to true.
         
@@ -129,6 +147,9 @@ class ChatBot {
           If the user asks about changing voices or mentions anything related to voice/speaking,
           use the currentSettings.availableVoices list to suggest appropriate voices and set selectedVoice
           to the best matching voice name. The current voice is marked with "current: true" in the list.
+          
+          When responding to memory-related queries, you can create an artifact to display the memory data
+          in a table or other visual format. Make it easy to read and understand.
           
           If the user requests or would benefit from visual/interactive content, create an appropriate artifact.
           
