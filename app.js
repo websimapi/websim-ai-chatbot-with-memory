@@ -2,7 +2,6 @@ import { ChatMemory } from './memory.js';
 import { SpeechHandler } from './speech.js';
 import { ArtifactRenderer } from './artifact-renderer.js';
 import { Settings } from './settings.js';
-import { DebugLogger } from './debug-logger.js';
 
 class ChatBot {
   constructor() {
@@ -10,8 +9,6 @@ class ChatBot {
     this.memory = new ChatMemory();
     this.speech = new SpeechHandler(this.settings);
     this.artifactRenderer = new ArtifactRenderer();
-    this.debugLogger = new DebugLogger();
-    
     this.chatHistory = document.getElementById('chatHistory');
     this.userInput = document.getElementById('userInput');
     this.sendBtn = document.getElementById('sendBtn');
@@ -34,28 +31,32 @@ class ChatBot {
     this.addMessageToChat(userMessage, 'user');
     this.userInput.value = '';
 
+    // Add user message to conversation context
     this.conversationContext.push({ role: 'user', content: userMessage });
 
+    // Get relevant memories
     const relevantMemories = await this.memory.getRelevantMemories(userMessage);
     
     try {
+      // First AI call to get response
       const response = await this.getAIResponse(userMessage, relevantMemories);
       
+      // Add bot response to conversation context
       this.conversationContext.push({ role: 'assistant', content: response.message });
+      
+      // Add message to chat
       this.addMessageToChat(response.message, 'bot');
       
-      try {
-        await this.speech.speak(response.message);
-      } catch (error) {
-        this.debugLogger.logError('Speech synthesis error:', error);
-      }
+      // Speak the response
+      await this.speech.speak(response.message);
 
+      // If the AI determined this should be remembered, store it
       if (response.shouldRemember) {
         await this.memory.storeMemory(userMessage, response.message);
       }
 
     } catch (error) {
-      this.debugLogger.logError('Error getting AI response:', error);
+      console.error('Error getting AI response:', error);
       this.addMessageToChat('Sorry, I encountered an error. Please try again.', 'bot');
     }
   }

@@ -3,8 +3,8 @@ export class SpeechHandler {
     this.synthesis = window.speechSynthesis;
     this.voice = null;
     this.settings = settings;
-    this.currentUtterance = null;
-    this.isPlaying = false;
+    this.speaking = false;
+    this.cancelled = false;
     this.initVoice();
   }
 
@@ -19,6 +19,7 @@ export class SpeechHandler {
     const voices = speechSynthesis.getVoices();
     const savedVoice = this.settings.getSetting('voice');
     
+    // Try to restore saved voice
     if (savedVoice) {
       const foundVoice = voices.find(v => v.name === savedVoice);
       if (foundVoice) {
@@ -27,6 +28,7 @@ export class SpeechHandler {
       }
     }
     
+    // Fallback to default voice selection
     this.voice = voices.find(voice => 
       voice.lang.startsWith('en') && voice.localService
     ) || voices[0];
@@ -53,33 +55,9 @@ export class SpeechHandler {
   }
 
   splitIntoSentences(text) {
-    // Split on periods, exclamation marks, or question marks followed by spaces or end of string
-    return text.match(/[^.!?]+[.!?]+(?:\s|$)/g) || [text];
-  }
-
-  async speak(text) {
-    // If already speaking, stop current speech
-    if (this.isPlaying) {
-      this.synthesis.cancel();
-      this.isPlaying = false;
-    }
-
-    const sentences = this.splitIntoSentences(text);
-    this.isPlaying = true;
-
-    for (let sentence of sentences) {
-      if (!this.isPlaying) break;
-
-      try {
-        await this.speakSentence(sentence.trim());
-      } catch (error) {
-        console.error('Error speaking sentence:', error);
-        this.isPlaying = false;
-        throw error;
-      }
-    }
-
-    this.isPlaying = false;
+    // Split text into sentences using regex
+    // This handles common sentence endings (., !, ?) and preserves newlines
+    return text.split(/(?<=[.!?])\s+|\n+/).filter(sentence => sentence.trim().length > 0);
   }
 
   async speakSentence(sentence) {
@@ -90,32 +68,48 @@ export class SpeechHandler {
       utterance.pitch = 1;
       utterance.volume = 1;
 
-      this.currentUtterance = utterance;
-
       utterance.onend = () => {
-        this.currentUtterance = null;
+        this.speaking = false;
         resolve();
       };
 
       utterance.onerror = (error) => {
-        this.currentUtterance = null;
-        this.isPlaying = false;
+        this.speaking = false;
         reject(error);
       };
 
-      // Add a small pause between sentences
-      setTimeout(() => {
-        if (this.isPlaying) {
-          this.synthesis.speak(utterance);
-        }
-      }, 100);
+      this.speaking = true;
+      this.synthesis.speak(utterance);
     });
   }
 
-  stop() {
-    this.isPlaying = false;
-    if (this.currentUtterance) {
-      this.synthesis.cancel();
+  async speak(text) {
+    // Cancel any ongoing speech
+    this.cancel();
+    
+    const sentences = this.splitIntoSentences(text);
+    this.cancelled = false;
+
+    for (const sentence of sentences) {
+      if (this.cancelled) break;
+      
+      try {
+        await this.speakSentence(sentence);
+        
+        // Small pause between sentences
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error('Error speaking sentence:', error);
+        if (!this.cancelled) {
+          throw error;
+        }
+      }
     }
+  }
+
+  cancel() {
+    this.cancelled = true;
+    this.synthesis.cancel();
+    this.speaking = false;
   }
 }
