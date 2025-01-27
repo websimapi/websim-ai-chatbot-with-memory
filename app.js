@@ -1,11 +1,13 @@
 import { ChatMemory } from './memory.js';
 import { SpeechHandler } from './speech.js';
 import { ArtifactRenderer } from './artifact-renderer.js';
+import { Settings } from './settings.js';
 
 class ChatBot {
   constructor() {
+    this.settings = new Settings();
     this.memory = new ChatMemory();
-    this.speech = new SpeechHandler();
+    this.speech = new SpeechHandler(this.settings);
     this.artifactRenderer = new ArtifactRenderer();
     this.chatHistory = document.getElementById('chatHistory');
     this.userInput = document.getElementById('userInput');
@@ -65,7 +67,10 @@ class ChatBot {
                           userMessage.toLowerCase().includes('speak') ||
                           userMessage.toLowerCase().includes('accent');
       
-      const availableVoices = voiceRelated ? this.speech.getAllVoices() : null;
+      const currentSettings = {
+        voice: this.settings.getSetting('voice'),
+        availableVoices: voiceRelated ? this.speech.getAllVoices() : null
+      };
 
       const response = await fetch('/api/ai_completion', {
         method: 'POST',
@@ -80,8 +85,8 @@ class ChatBot {
           Use the relevant memories provided if they help inform your response.
           
           If the user asks about changing voices or mentions anything related to voice/speaking,
-          use the availableVoices list to suggest appropriate voices and set selectedVoice
-          to the best matching voice name.
+          use the currentSettings.availableVoices list to suggest appropriate voices and set selectedVoice
+          to the best matching voice name. The current voice is marked with "current: true" in the list.
           
           If the user requests or would benefit from visual/interactive content, create an appropriate artifact.
           
@@ -97,23 +102,18 @@ class ChatBot {
             };
           }
           
-          Example response with artifact:
+          Example response with voice change:
           {
-            "message": "I've created a simple interactive counter for you:",
+            "message": "I've changed my voice to Microsoft David. How does this sound?",
             "shouldRemember": false,
-            "artifact": {
-              "html": "<div id='counter-container'><button id='increment'>Count: 0</button></div>",
-              "css": "#counter-container { padding: 20px; text-align: center; } #increment { padding: 10px 20px; }",
-              "js": "let count = 0; document.getElementById('increment').addEventListener('click', () => { count++; document.getElementById('increment').textContent = 'Count: ' + count; });",
-              "containerId": "counter-container"
-            }
+            "selectedVoice": "Microsoft David Desktop"
           }
           `,
           data: {
             message: userMessage,
             context: this.conversationContext,
             relevantMemories: relevantMemories,
-            availableVoices: availableVoices
+            currentSettings: currentSettings
           }
         }),
       });

@@ -1,7 +1,8 @@
 export class SpeechHandler {
-  constructor() {
+  constructor(settings) {
     this.synthesis = window.speechSynthesis;
     this.voice = null;
+    this.settings = settings;
     this.initVoice();
   }
 
@@ -13,8 +14,19 @@ export class SpeechHandler {
       });
     }
     
-    // Select a natural-sounding English voice
     const voices = speechSynthesis.getVoices();
+    const savedVoice = this.settings.getSetting('voice');
+    
+    // Try to restore saved voice
+    if (savedVoice) {
+      const foundVoice = voices.find(v => v.name === savedVoice);
+      if (foundVoice) {
+        this.voice = foundVoice;
+        return;
+      }
+    }
+    
+    // Fallback to default voice selection
     this.voice = voices.find(voice => 
       voice.lang.startsWith('en') && voice.localService
     ) || voices[0];
@@ -24,7 +36,8 @@ export class SpeechHandler {
     return speechSynthesis.getVoices().map(voice => ({
       name: voice.name,
       lang: voice.lang,
-      isLocal: voice.localService
+      isLocal: voice.localService,
+      current: this.voice && this.voice.name === voice.name
     }));
   }
 
@@ -33,6 +46,7 @@ export class SpeechHandler {
     const newVoice = voices.find(v => v.name === voiceName);
     if (newVoice) {
       this.voice = newVoice;
+      this.settings.updateSetting('voice', voiceName);
       return true;
     }
     return false;
