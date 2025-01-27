@@ -3,6 +3,7 @@ export class SpeechHandler {
     this.synthesis = window.speechSynthesis;
     this.voice = null;
     this.settings = settings;
+    this.currentUtterance = null;
     this.initVoice();
   }
 
@@ -17,7 +18,6 @@ export class SpeechHandler {
     const voices = speechSynthesis.getVoices();
     const savedVoice = this.settings.getSetting('voice');
     
-    // Try to restore saved voice
     if (savedVoice) {
       const foundVoice = voices.find(v => v.name === savedVoice);
       if (foundVoice) {
@@ -26,7 +26,6 @@ export class SpeechHandler {
       }
     }
     
-    // Fallback to default voice selection
     this.voice = voices.find(voice => 
       voice.lang.startsWith('en') && voice.localService
     ) || voices[0];
@@ -53,23 +52,31 @@ export class SpeechHandler {
   }
 
   async speak(text) {
-    // Cancel any ongoing speech
-    this.synthesis.cancel();
-
-    // Create and configure utterance
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = this.voice;
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-
-    // Speak the text
-    this.synthesis.speak(utterance);
-
-    // Return a promise that resolves when speech is complete
     return new Promise((resolve, reject) => {
-      utterance.onend = resolve;
-      utterance.onerror = reject;
+      // Cancel any ongoing speech
+      if (this.currentUtterance) {
+        this.synthesis.cancel();
+      }
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.voice = this.voice;
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      this.currentUtterance = utterance;
+
+      utterance.onend = () => {
+        this.currentUtterance = null;
+        resolve();
+      };
+
+      utterance.onerror = (error) => {
+        this.currentUtterance = null;
+        reject(error);
+      };
+
+      this.synthesis.speak(utterance);
     });
   }
 }
