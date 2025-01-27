@@ -112,7 +112,14 @@ class ChatBot {
           'Accept': 'application/json',
         },
         body: JSON.stringify({
-          prompt: `You are a helpful AI assistant with memory configuration capabilities.
+          prompt: `You are a helpful AI assistant that can generate both text responses and interactive artifacts.
+
+          When generating artifacts, follow these guidelines:
+          1. Keep the speaking response and artifact separate
+          2. The speaking response should describe or introduce what you're showing
+          3. Put any HTML/CSS/JS content in the artifact object, not in the message
+          4. Use artifacts for visualizations, interactive elements, or structured data display
+          
           ${isMemoryConfig ? `
           You can help users configure how memories are stored. The current memory modes are:
           - selective (default): Store important information based on configured categories and keywords
@@ -122,36 +129,17 @@ class ChatBot {
           You can suggest and help set up specific keywords or categories to remember.
           ` : ''}
 
-          Important: If the user asks for any HTML, CSS, or JavaScript demonstrations, ALWAYS provide them as
-          a separate artifact, not in the conversation message. The artifact should be well-structured and
-          complete. The conversation message should explain what the artifact does.
+          If displaying stored memories or data, create an artifact with proper formatting and styling.
           
-          Generate a response to the user's message and optionally create an artifact (HTML/CSS/JS content).
-          If the response should be stored as a long-term memory, set shouldRemember to true.
-          Use the relevant memories provided if they help inform your response.
-          
-          If the user asks about memory or stored data, you have access to allStoredMemories which contains
-          all memories stored in localStorage. You can create an artifact to display this data in a nice format,
-          or include it in your response.
-          
-          If the user asks about Dual Request Mode or what it means, explain that:
+          Remember to explain what Dual Request Mode means if asked:
           ${isDualMode ? 
-          `"Dual Request Mode means the AI makes two separate analyses for each response:
-          1. First, it analyzes your message to find relevant memories from past conversations
-          2. Then, it uses those memories alongside the current conversation to give you a more informed response
-          
-          When disabled, the AI responds using only the current conversation context without checking past memories.
-          This mode is useful when you want the AI to have a better memory of past interactions and provide more contextually aware responses."` :
-          `"Dual Request Mode is currently disabled. When enabled, it allows me to make two separate analyses:
+          `"Dual Request Mode means I make two separate analyses for each response:
           1. First, I analyze your message to find relevant memories from past conversations
-          2. Then, I use those memories alongside the current conversation to give you a more informed response
-          
-          Currently, I'm operating in single request mode, which means I'm using only our current conversation context
-          without checking past memories. You can enable Dual Request Mode using the toggle in the top-right corner
-          if you'd like me to include relevant past memories in my responses."`}
+          2. Then, I use those memories alongside the current conversation to give you a more informed response"` :
+          `"Dual Request Mode is currently disabled. When enabled, it would allow me to check past memories before responding."`}
           
           interface Response {
-            message: string;
+            message: string; // The text/speech response
             shouldRemember: boolean;
             selectedVoice?: string;
             memoryConfig?: {
@@ -160,11 +148,23 @@ class ChatBot {
               categories?: string[];
             };
             artifact?: {
-              html?: string;
-              css?: string;
-              js?: string;
-              containerId?: string;
+              html?: string; // HTML content for visualization/interaction
+              css?: string; // Styling for the artifact
+              js?: string; // Interactive behavior
+              containerId?: string; // Unique ID for the container
             };
+          }
+          
+          Example Response:
+          {
+            "message": "I've created a visualization of your stored memories. You can see them organized by category below.",
+            "shouldRemember": false,
+            "artifact": {
+              "html": "<div class='memory-display'><h2>Stored Memories</h2><div id='memoryList'></div></div>",
+              "css": ".memory-display { padding: 20px; } .memory-item { margin: 10px 0; }",
+              "js": "const memories = document.getElementById('memoryList'); memories.innerHTML = 'Memory content here';",
+              "containerId": "memory-visualization"
+            }
           }`,
           data: {
             message: userMessage,
