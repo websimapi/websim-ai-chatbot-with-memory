@@ -8,7 +8,7 @@ export class Settings {
     const stored = localStorage.getItem(this.storageKey);
     return stored ? JSON.parse(stored) : {
       voice: null,
-      // Add more default settings here as needed
+      dualRequestMode: true, // Default to using dual requests
     };
   }
 

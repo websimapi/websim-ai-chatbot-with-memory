@@ -12,15 +12,25 @@ class ChatBot {
     this.chatHistory = document.getElementById('chatHistory');
     this.userInput = document.getElementById('userInput');
     this.sendBtn = document.getElementById('sendBtn');
+    this.toggleInput = document.getElementById('dualRequestToggle');
     
     this.setupEventListeners();
     this.conversationContext = [];
+    this.initializeToggle();
+  }
+
+  initializeToggle() {
+    const isDualMode = this.settings.getSetting('dualRequestMode');
+    this.toggleInput.checked = isDualMode;
   }
 
   setupEventListeners() {
     this.sendBtn.addEventListener('click', () => this.handleUserInput());
     this.userInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') this.handleUserInput();
+    });
+    this.toggleInput.addEventListener('change', (e) => {
+      this.settings.updateSetting('dualRequestMode', e.target.checked);
     });
   }
 
@@ -34,12 +44,18 @@ class ChatBot {
     // Add user message to conversation context
     this.conversationContext.push({ role: 'user', content: userMessage });
 
-    // Get relevant memories
-    const relevantMemories = await this.memory.getRelevantMemories(userMessage);
+    const isDualMode = this.settings.getSetting('dualRequestMode');
     
     try {
-      // First AI call to get response
-      const response = await this.getAIResponse(userMessage, relevantMemories);
+      let relevantMemories = [];
+      
+      // Only fetch memories in dual request mode
+      if (isDualMode) {
+        relevantMemories = await this.memory.getRelevantMemories(userMessage);
+      }
+      
+      // Get AI response
+      const response = await this.getAIResponse(userMessage, relevantMemories, isDualMode);
       
       // Add bot response to conversation context
       this.conversationContext.push({ role: 'assistant', content: response.message });
@@ -61,7 +77,7 @@ class ChatBot {
     }
   }
 
-  async getAIResponse(userMessage, relevantMemories) {
+  async getAIResponse(userMessage, relevantMemories, isDualMode) {
     try {
       const voiceRelated = userMessage.toLowerCase().includes('voice') || 
                           userMessage.toLowerCase().includes('speak') ||
@@ -69,8 +85,20 @@ class ChatBot {
       
       const currentSettings = {
         voice: this.settings.getSetting('voice'),
+        dualRequestMode: isDualMode,
         availableVoices: voiceRelated ? this.speech.getAllVoices() : null
       };
+
+      const prompt = isDualMode ? 
+        `You are a helpful AI assistant with the ability to create interactive content.
+        Generate a response to the user's message and optionally create an artifact (HTML/CSS/JS content).
+        If the response should be stored as a long-term memory, set shouldRemember to true.
+        Use the relevant memories provided if they help inform your response.` :
+        `You are a helpful AI assistant with the ability to create interactive content and manage memory.
+        Generate a response to the user's message and optionally create an artifact (HTML/CSS/JS content).
+        Analyze the conversation context to determine if this interaction should be remembered for future reference.
+        If you think this interaction contains important information that could be relevant later,
+        set shouldRemember to true.`;
 
       const response = await fetch('/api/ai_completion', {
         method: 'POST',
@@ -79,10 +107,7 @@ class ChatBot {
           'Accept': 'application/json',
         },
         body: JSON.stringify({
-          prompt: `You are a helpful AI assistant with the ability to create interactive content.
-          Generate a response to the user's message and optionally create an artifact (HTML/CSS/JS content).
-          If the response should be stored as a long-term memory, set shouldRemember to true.
-          Use the relevant memories provided if they help inform your response.
+          prompt: prompt + `
           
           If the user asks about changing voices or mentions anything related to voice/speaking,
           use the currentSettings.availableVoices list to suggest appropriate voices and set selectedVoice
@@ -93,20 +118,13 @@ class ChatBot {
           interface Response {
             message: string;
             shouldRemember: boolean;
-            selectedVoice?: string; // Voice name to switch to, if applicable
+            selectedVoice?: string;
             artifact?: {
-              html?: string; // HTML content
-              css?: string;  // CSS styles
-              js?: string;   // JavaScript code
-              containerId?: string; // ID for the container element
+              html?: string;
+              css?: string;
+              js?: string;
+              containerId?: string;
             };
-          }
-          
-          Example response with voice change:
-          {
-            "message": "I've changed my voice to Microsoft David. How does this sound?",
-            "shouldRemember": false,
-            "selectedVoice": "Microsoft David Desktop"
           }
           `,
           data: {
