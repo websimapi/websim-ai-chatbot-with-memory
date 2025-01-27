@@ -2,6 +2,7 @@ import { ChatMemory } from './memory.js';
 import { SpeechHandler } from './speech.js';
 import { ArtifactRenderer } from './artifact-renderer.js';
 import { Settings } from './settings.js';
+import { ContentParser } from './content-parser.js';
 
 class ChatBot {
   constructor() {
@@ -34,46 +35,6 @@ class ChatBot {
     });
   }
 
-  containsHTML(text) {
-    // More comprehensive HTML tag detection regex
-    const htmlRegex = /<[^>]*>.*?<\/[^>]*>|<[^/>][^>]*\/>/;
-    return htmlRegex.test(text);
-  }
-
-  extractTextAndHTML(response) {
-    // If the response has dedicated message and artifact fields, use those
-    if (response.artifact) {
-      return {
-        text: response.message,
-        html: response.artifact
-      };
-    }
-
-    // If the message contains HTML, separate it into text and HTML components
-    if (this.containsHTML(response.message)) {
-      // Create a temporary div to parse HTML content
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = response.message;
-
-      // Extract text content
-      const textContent = tempDiv.textContent.trim();
-
-      return {
-        text: textContent,
-        html: {
-          html: response.message,
-          containerId: `auto-artifact-${Date.now()}`
-        }
-      };
-    }
-
-    // If no HTML, return just the text
-    return {
-      text: response.message,
-      html: null
-    };
-  }
-
   async handleUserInput() {
     const userMessage = this.userInput.value.trim();
     if (!userMessage) return;
@@ -96,21 +57,27 @@ class ChatBot {
       
       this.conversationContext.push({ role: 'assistant', content: response.message });
       
-      // Extract text and HTML content
-      const { text, html } = this.extractTextAndHTML(response);
-
-      // Always add the text message to chat and speak it
-      if (text) {
-        this.addMessageToChat(text, 'bot');
-        await this.speech.speak(text);
-      }
-
-      // If there's HTML content, render it as an artifact
-      if (html) {
-        const artifactElement = await this.artifactRenderer.render(html);
+      // Parse the response content
+      const parsedContent = ContentParser.extractContent(response.message);
+      
+      if (parsedContent.hasCode) {
+        // Create and render the artifact
+        const validatedArtifact = ContentParser.validateArtifact(parsedContent.artifact);
+        const artifactElement = await this.artifactRenderer.render(validatedArtifact);
         this.addArtifactToChat(artifactElement);
+        
+        // Speak the plain text if available
+        if (parsedContent.plainText) {
+          this.addMessageToChat(parsedContent.plainText, 'bot');
+          await this.speech.speak(parsedContent.plainText);
+        }
+      } else {
+        // Regular text message
+        this.addMessageToChat(response.message, 'bot');
+        await this.speech.speak(response.message);
       }
 
+      // Handle memory storage
       if (response.shouldRemember) {
         const memoryConfig = this.settings.getMemoryConfig();
         const shouldStore = await this.memory.shouldStoreMemory(userMessage, response.message, memoryConfig);
@@ -118,6 +85,13 @@ class ChatBot {
         if (shouldStore.shouldStore) {
           await this.memory.storeMemory(userMessage, response.message, shouldStore.category);
         }
+      }
+
+      // Handle any explicit artifacts in the response
+      if (response.artifact) {
+        const validatedArtifact = ContentParser.validateArtifact(response.artifact);
+        const artifactElement = await this.artifactRenderer.render(validatedArtifact);
+        this.addArtifactToChat(artifactElement);
       }
 
     } catch (error) {
