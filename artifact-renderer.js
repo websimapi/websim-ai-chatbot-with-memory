@@ -30,15 +30,38 @@ export class ArtifactRenderer {
       container.appendChild(styleElement);
     }
 
-    // Add JavaScript
+    // Add JavaScript with error handling and memory access
     if (artifact.js) {
       const scriptElement = document.createElement('script');
       scriptElement.type = 'module';
       
-      // Wrap the code in an IIFE and add error handling
+      // Wrap the code in an IIFE and add error handling and memory access helpers
       const wrappedCode = `
         (async function() {
           try {
+            // Add helper functions for memory access
+            const getMemories = () => {
+              try {
+                return JSON.parse(localStorage.getItem('chatbot_memories')) || [];
+              } catch (e) {
+                console.error('Error accessing memories:', e);
+                return [];
+              }
+            };
+
+            const getSettings = () => {
+              try {
+                return JSON.parse(localStorage.getItem('chatbot_settings')) || {};
+              } catch (e) {
+                console.error('Error accessing settings:', e);
+                return {};
+              }
+            };
+
+            // Make memories and settings available to artifact code
+            const memories = getMemories();
+            const settings = getSettings();
+
             ${artifact.js}
           } catch (error) {
             console.error('Artifact execution error:', error);
