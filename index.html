@@ -9,12 +9,14 @@
   <div class="settings-controls">
     <div class="toggle-container">
       <div class="toggle-icons" id="requestModeIcons">
-        <img src="w.png" alt="Single Request" class="single-w active">
-        <img src="w.png" alt="Dual Request" class="dual-w">
+        <img src="w.png" alt="Single Request" class="mode-w active">
       </div>
       <label class="toggle-switch">
-        <input type="checkbox" id="dualRequestToggle">
-        <span class="toggle-slider"></span>
+        <select id="dualRequestToggle" class="mode-select">
+          <option value="single">Single</option>
+          <option value="dual">Dual</option>
+          <option value="advanced">Advanced</option>
+        </select>
       </label>
     </div>
     <div class="toggle-container">

@@ -14,67 +14,40 @@ class ChatBot {
     this.chatHistory = document.getElementById('chatHistory');
     this.userInput = document.getElementById('userInput');
     this.sendBtn = document.getElementById('sendBtn');
-    this.toggleInput = document.getElementById('dualRequestToggle');
+    this.toggleInput = document.getElementById('requestModeToggle');
     this.ttsToggle = document.getElementById('ttsToggle');
     
     this.setupEventListeners();
     this.conversationContext = [];
     this.replyingToMessage = null;
     this.confirmationActive = false;
-    this.initializeToggles();
+    this.requestQueue = [];
+    this.processingRequest = false;
+    this.requestMode = this.settings.getSetting('requestMode') || 'single';
+    this.lastRequestTime = 0;
+    this.REQUEST_DELAY = 3000; // 3 seconds between requests
+    this.initializeRequestMode();
   }
 
-  initializeToggles() {
-    const isDualMode = this.settings.getSetting('dualRequestMode');
-    const isTtsEnabled = this.settings.getSetting('ttsEnabled');
-    
-    this.toggleInput.checked = isDualMode;
-    this.ttsToggle.checked = isTtsEnabled;
-    this.updateRequestModeIcons(isDualMode);
+  initializeRequestMode() {
+    const mode = this.settings.getSetting('requestMode') || 'single';
+    this.toggleInput.value = mode;
+    this.updateRequestModeIcons(mode);
   }
 
-  updateRequestModeIcons(isDualMode) {
-    const singleW = document.querySelector('.single-w');
-    const dualW = document.querySelector('.dual-w');
+  updateRequestModeIcons(mode) {
+    const container = document.querySelector('.toggle-icons');
+    container.innerHTML = '';
     
-    if (isDualMode) {
-      singleW.classList.add('active');
-      dualW.classList.add('active');
-    } else {
-      singleW.classList.add('active');
-      dualW.classList.remove('active');
+    const numW = mode === 'single' ? 1 : mode === 'dual' ? 2 : 3;
+    
+    for (let i = 0; i < numW; i++) {
+      const img = document.createElement('img');
+      img.src = 'w.png';
+      img.alt = `W ${i + 1}`;
+      img.className = 'mode-w active';
+      container.appendChild(img);
     }
-  }
-
-  createFallingToken(charCount) {
-    const token = document.createElement('div');
-    token.className = 'falling-token';
-    
-    const img = document.createElement('img');
-    img.src = 'w.png';
-    token.appendChild(img);
-    
-    const countDisplay = document.createElement('div');
-    countDisplay.className = 'char-count';
-    countDisplay.textContent = this.formatCharCount(charCount);
-    token.appendChild(countDisplay);
-    
-    const container = document.getElementById('tokenContainer');
-    const startX = Math.random() * 60; 
-    token.style.right = `${startX}px`;
-    
-    container.appendChild(token);
-    
-    token.addEventListener('animationend', () => {
-      container.removeChild(token);
-    });
-  }
-
-  formatCharCount(count) {
-    if (count >= 1000) {
-      return (count / 1000).toFixed(1) + 'k';
-    }
-    return count.toString();
   }
 
   setupEventListeners() {
@@ -84,9 +57,10 @@ class ChatBot {
     });
     
     this.toggleInput.addEventListener('change', (e) => {
-      const isDualMode = e.target.checked;
-      this.settings.updateSetting('dualRequestMode', isDualMode);
-      this.updateRequestModeIcons(isDualMode);
+      const mode = e.target.value;
+      this.settings.updateSetting('requestMode', mode);
+      this.requestMode = mode;
+      this.updateRequestModeIcons(mode);
     });
     
     this.ttsToggle.addEventListener('change', (e) => {
@@ -106,6 +80,36 @@ class ChatBot {
     this.replyingToMessage = messageText;
     this.userInput.placeholder = `Replying to: ${messageText.substring(0, 30)}...`;
     this.userInput.focus();
+  }
+
+  async processRequestQueue() {
+    if (this.processingRequest || this.requestQueue.length === 0) return;
+    
+    this.processingRequest = true;
+    const currentTime = Date.now();
+    const timeSinceLastRequest = currentTime - this.lastRequestTime;
+    
+    if (timeSinceLastRequest < this.REQUEST_DELAY) {
+      await new Promise(resolve => setTimeout(resolve, this.REQUEST_DELAY - timeSinceLastRequest));
+    }
+    
+    const request = this.requestQueue.shift();
+    this.lastRequestTime = Date.now();
+    
+    try {
+      const response = await request();
+      this.createFallingToken(JSON.stringify(response).length);
+    } catch (error) {
+      console.error('Error processing request:', error);
+    } finally {
+      this.processingRequest = false;
+      setTimeout(() => this.processRequestQueue(), 100);
+    }
+  }
+
+  queueRequest(requestFn) {
+    this.requestQueue.push(requestFn);
+    this.processRequestQueue();
   }
 
   async handleUserInput() {
@@ -131,7 +135,6 @@ class ChatBot {
     this.userInput.value = '';
     this.userInput.placeholder = 'Type your message...';
     
-    // Create context with just the replied-to message if it exists
     if (this.replyingToMessage) {
       this.conversationContext = [
         { role: 'assistant', content: this.replyingToMessage },
@@ -140,50 +143,58 @@ class ChatBot {
     } else {
       this.conversationContext.push({ role: 'user', content: userMessage });
     }
-    
+
     const contextString = JSON.stringify(this.conversationContext);
     this.createFallingToken(contextString.length);
 
-    this.createFallingToken(userMessage.length);
-
-    const isDualMode = this.settings.getSetting('dualRequestMode');
+    const mode = this.settings.getSetting('requestMode') || 'single';
     const isTtsEnabled = this.settings.getSetting('ttsEnabled');
     
     try {
       let relevantMemories = [];
       
-      if (isDualMode) {
-        const memoryContext = JSON.stringify(this.conversationContext);
-        this.createFallingToken(memoryContext.length);
-        relevantMemories = await this.memory.getRelevantMemories(userMessage);
+      if (mode !== 'single') {
+        // Queue memory request
+        this.queueRequest(async () => {
+          relevantMemories = await this.memory.getRelevantMemories(userMessage);
+          return relevantMemories;
+        });
       }
       
-      const response = await this.getAIResponse(userMessage, relevantMemories, isDualMode);
-      
-      this.conversationContext.push({ role: 'assistant', content: response.message });
-      
-      this.addMessageToChat(response.message, 'bot');
-      
-      if (isTtsEnabled) {
-        await this.speech.speak(response.message);
-      }
-
-      if (response.shouldRemember) {
-        const memoryConfig = this.settings.getMemoryConfig();
-        const shouldStore = await this.memory.shouldStoreMemory(userMessage, response.message, memoryConfig);
+      // Queue main response request
+      this.queueRequest(async () => {
+        const response = await this.getAIResponse(userMessage, relevantMemories, mode !== 'single');
         
-        if (shouldStore.shouldStore) {
-          await this.memory.storeMemory(userMessage, response.message, shouldStore.category);
+        this.conversationContext.push({ role: 'assistant', content: response.message });
+        this.addMessageToChat(response.message, 'bot');
+        
+        if (isTtsEnabled) {
+          await this.speech.speak(response.message);
         }
-      }
 
-      if (response.artifact) {
-        const artifactElement = await this.artifactRenderer.render(response.artifact);
-        this.addArtifactToChat(artifactElement);
-      }
+        if (response.shouldRemember && mode === 'advanced') {
+          // Queue memory storage request
+          this.queueRequest(async () => {
+            const memoryConfig = this.settings.getMemoryConfig();
+            const shouldStore = await this.memory.shouldStoreMemory(userMessage, response.message, memoryConfig);
+            
+            if (shouldStore.shouldStore) {
+              await this.memory.storeMemory(userMessage, response.message, shouldStore.category);
+            }
+            return shouldStore;
+          });
+        }
+
+        if (response.artifact) {
+          const artifactElement = await this.artifactRenderer.render(response.artifact);
+          this.addArtifactToChat(artifactElement);
+        }
+
+        return response;
+      });
 
     } catch (error) {
-      console.error('Error getting AI response:', error);
+      console.error('Error handling user input:', error);
       this.addMessageToChat('Sorry, I encountered an error. Please try again.', 'bot');
     }
     
@@ -251,8 +262,8 @@ class ChatBot {
                          userMessage.toLowerCase().includes('modify') ||
                          userMessage.toLowerCase().includes('change code');
 
-      // Get all memories for every request to enable artifact memory access
-      const allMemories = this.memory.loadMemories();
+      // Get all memories if this is a memory-related query
+      const allMemories = isMemoryQuery ? this.memory.loadMemories() : [];
       const memoryConfig = this.settings.getMemoryConfig();
       const codebase = isCodeQuery ? this.codeManager.getFileContents() : null;
 
@@ -273,14 +284,13 @@ class ChatBot {
         body: JSON.stringify({
           prompt: `You are a helpful AI assistant that can generate both text responses and interactive artifacts.
           
-          You have direct access to all stored memories and can use them in artifacts and responses.
-          Current memories in localStorage: ${JSON.stringify(allMemories)}
-          
           ${isCodeQuery ? `
           You have access to the full codebase. You can:
           1. Explain how specific parts of the code work
           2. Modify code when requested
           3. Add new features through code changes
+          
+          If code changes are requested, include them in the codeChanges property.
           
           Current codebase:
           ${JSON.stringify(codebase, null, 2)}
@@ -303,19 +313,6 @@ class ChatBot {
           3. Put ALL HTML, CSS, and JavaScript in the artifact property.
           4. If you need to explain what an artifact does, include that in your message property.
           
-          The artifact property can directly access localStorage through:
-          - localStorage.getItem('chatbot_memories')
-          - localStorage.getItem('chatbot_settings')
-          
-          You can display and manipulate memories in artifacts. Example:
-          {
-            "message": "Here's a visualization of your stored memories.",
-            "artifact": {
-              "html": "<div id='memory-display'></div>",
-              "js": "const memories = JSON.parse(localStorage.getItem('chatbot_memories')); const display = document.getElementById('memory-display'); display.innerHTML = memories.map(m => \`<div class='memory'>\${m.userMessage}</div>\`).join('');"
-            }
-          }
-          
           Memory System Configuration:
           You can help users configure memory storage behavior with these modes:
           - selective (default): Store important information based on configured categories and keywords
@@ -324,6 +321,14 @@ class ChatBot {
           
           Current memory settings:
           ${JSON.stringify(memoryConfig, null, 2)}
+          
+          If the user asks about changing memory settings, you can:
+          1. Set the memory mode
+          2. Define keywords to trigger memory storage
+          3. Set up categories for organizing memories
+          4. Explain current memory settings
+          
+          When configuring memories, return memoryConfig in the response.
           
           ${isDualMode ? 
             'Dual Request Mode is active: I analyze past memories before responding' : 
@@ -347,13 +352,24 @@ class ChatBot {
             codeChanges?: {
               [filename: string]: string;
             };
+          }
+          
+          Example Response with Artifact:
+          {
+            "message": "I've created a simple counter button for you to try out.",
+            "shouldRemember": false,
+            "artifact": {
+              "html": "<button id='counterBtn'>Clicks: 0</button>",
+              "css": "#counterBtn { padding: 10px; }",
+              "js": "const btn = document.getElementById('counterBtn'); let count = 0; btn.onclick = () => { count++; btn.textContent = 'Clicks: ' + count; };",
+              "containerId": "counter-demo"
+            }
           }`,
           data: {
             message: userMessage,
             context: this.conversationContext,
             relevantMemories: relevantMemories,
             currentSettings: currentSettings,
-            allMemories: allMemories,
             codebase: codebase
           }
         })
@@ -383,6 +399,37 @@ class ChatBot {
     } catch (error) {
       throw new Error('Failed to get AI response');
     }
+  }
+
+  createFallingToken(charCount) {
+    const token = document.createElement('div');
+    token.className = 'falling-token';
+    
+    const img = document.createElement('img');
+    img.src = 'w.png';
+    token.appendChild(img);
+    
+    const countDisplay = document.createElement('div');
+    countDisplay.className = 'char-count';
+    countDisplay.textContent = this.formatCharCount(charCount);
+    token.appendChild(countDisplay);
+    
+    const container = document.getElementById('tokenContainer');
+    const startX = Math.random() * 60; 
+    token.style.right = `${startX}px`;
+    
+    container.appendChild(token);
+    
+    token.addEventListener('animationend', () => {
+      container.removeChild(token);
+    });
+  }
+
+  formatCharCount(count) {
+    if (count >= 1000) {
+      return (count / 1000).toFixed(1) + 'k';
+    }
+    return count.toString();
   }
 
   addMessageToChat(message, sender) {

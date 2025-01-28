@@ -253,6 +253,27 @@ input:checked + .toggle-slider:before {
   transform: translateX(26px);
 }
 
+.mode-select {
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  outline: none;
+}
+
+.mode-w {
+  width: 24px;
+  height: 24px;
+  opacity: 0.3;
+  transition: opacity 0.3s;
+  margin-right: 4px;
+}
+
+.mode-w.active {
+  opacity: 1;
+}
+
 .token-container {
   position: fixed;
   top: 0;
@@ -297,6 +318,9 @@ input:checked + .toggle-slider:before {
 @keyframes fall {
   0% {
     transform: translateY(60px);
+    opacity: 1;
+  }
+  20% {
     opacity: 1;
   }
   100% {

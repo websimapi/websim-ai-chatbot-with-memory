@@ -1,19 +1,29 @@
 export class Settings {
   constructor() {
     this.storageKey = 'chatbot_settings';
-    this.settings = this.loadSettings();
+    const stored = localStorage.getItem(this.storageKey);
+    const defaultSettings = {
+      voice: null,
+      requestMode: 'single',
+      ttsEnabled: true,
+      memoryMode: 'selective',
+      memoryKeywords: [],
+      memoryCategories: [],
+    };
+    this.settings = stored ? JSON.parse(stored) : defaultSettings;
   }
 
   loadSettings() {
     const stored = localStorage.getItem(this.storageKey);
-    return stored ? JSON.parse(stored) : {
+    const defaultSettings = {
       voice: null,
-      dualRequestMode: true,
+      requestMode: 'single',
       ttsEnabled: true,
-      memoryMode: 'selective', 
-      memoryKeywords: [], 
-      memoryCategories: [], 
+      memoryMode: 'selective',
+      memoryKeywords: [],
+      memoryCategories: [],
     };
+    return stored ? JSON.parse(stored) : defaultSettings;
   }
 
   saveSettings() {
