@@ -308,8 +308,8 @@ class ChatBot {
           When configuring memories, return memoryConfig in the response.
           
           ${isDualMode ? 
-            `Dual Request Mode is active: I analyze past memories before responding` : 
-            `Dual Request Mode is inactive: I respond directly without checking memories`}
+            'Dual Request Mode is active: I analyze past memories before responding' : 
+            'Dual Request Mode is inactive: I respond directly without checking memories'}
 
           interface Response {
             message: string;  
@@ -349,8 +349,8 @@ class ChatBot {
             currentSettings: currentSettings,
             codebase: codebase
           }
-        }),
-      };
+        })
+      });
       
       const result = await response.json();
       
