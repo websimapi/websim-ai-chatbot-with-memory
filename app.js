@@ -2,6 +2,7 @@ import { ChatMemory } from './memory.js';
 import { SpeechHandler } from './speech.js';
 import { ArtifactRenderer } from './artifact-renderer.js';
 import { Settings } from './settings.js';
+import { CodeManager } from './code-manager.js';
 
 class ChatBot {
   constructor() {
@@ -9,6 +10,7 @@ class ChatBot {
     this.memory = new ChatMemory();
     this.speech = new SpeechHandler(this.settings);
     this.artifactRenderer = new ArtifactRenderer();
+    this.codeManager = new CodeManager();
     this.chatHistory = document.getElementById('chatHistory');
     this.userInput = document.getElementById('userInput');
     this.sendBtn = document.getElementById('sendBtn');
@@ -94,8 +96,14 @@ class ChatBot {
                             userMessage.toLowerCase().includes('memory settings') ||
                             userMessage.toLowerCase().includes('how to remember');
 
+      const isCodeQuery = userMessage.toLowerCase().includes('code') ||
+                         userMessage.toLowerCase().includes('codebase') ||
+                         userMessage.toLowerCase().includes('modify') ||
+                         userMessage.toLowerCase().includes('change code');
+
       const allMemories = isMemoryQuery ? this.memory.loadMemories() : [];
       const memoryConfig = this.settings.getMemoryConfig();
+      const codebase = isCodeQuery ? this.codeManager.getFileContents() : null;
 
       const currentSettings = {
         voice: this.settings.getSetting('voice'),
@@ -113,6 +121,18 @@ class ChatBot {
         },
         body: JSON.stringify({
           prompt: `You are a helpful AI assistant that can generate both text responses and interactive artifacts.
+          
+          ${isCodeQuery ? `
+          You have access to the full codebase. You can:
+          1. Explain how specific parts of the code work
+          2. Modify code when requested
+          3. Add new features through code changes
+          
+          If code changes are requested, include them in the codeChanges property.
+          
+          Current codebase:
+          ${JSON.stringify(codebase, null, 2)}
+          ` : ''}
           
           IMPORTANT RENDERING INSTRUCTIONS:
           1. When you want to create visual or interactive content, use the artifact property in your response.
@@ -156,6 +176,9 @@ class ChatBot {
               js?: string;    // Interactive behavior
               containerId?: string;  // Unique ID for the container
             };
+            codeChanges?: {
+              [filename: string]: string;
+            };
           }
           
           Example Response with Artifact:
@@ -173,7 +196,8 @@ class ChatBot {
             message: userMessage,
             context: this.conversationContext,
             relevantMemories: relevantMemories,
-            currentSettings: currentSettings
+            currentSettings: currentSettings,
+            codebase: codebase
           }
         }),
       });
@@ -191,6 +215,13 @@ class ChatBot {
         }
       }
 
+      if (result.codeChanges) {
+        Object.entries(result.codeChanges).forEach(([filename, content]) => {
+          this.codeManager.updateFile(filename, content);
+        });
+        await this.codeManager.applyCodeChanges();
+      }
+      
       return result;
     } catch (error) {
       throw new Error('Failed to get AI response');
