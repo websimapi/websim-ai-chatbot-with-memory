@@ -251,6 +251,7 @@ class ChatBot {
                          userMessage.toLowerCase().includes('modify') ||
                          userMessage.toLowerCase().includes('change code');
 
+      // Get all memories if this is a memory-related query
       const allMemories = isMemoryQuery ? this.memory.loadMemories() : [];
       const memoryConfig = this.settings.getMemoryConfig();
       const codebase = isCodeQuery ? this.codeManager.getFileContents() : null;
@@ -282,6 +283,17 @@ class ChatBot {
           
           Current codebase:
           ${JSON.stringify(codebase, null, 2)}
+          ` : ''}
+          
+          ${isMemoryQuery ? `
+          Current Memory System Status:
+          1. Memory Mode: ${memoryConfig.mode}
+          2. Memory Keywords: ${JSON.stringify(memoryConfig.keywords)}
+          3. Memory Categories: ${JSON.stringify(memoryConfig.categories)}
+          4. Total Stored Memories: ${allMemories.length}
+          
+          All stored memories:
+          ${JSON.stringify(allMemories, null, 2)}
           ` : ''}
           
           IMPORTANT RENDERING INSTRUCTIONS:
