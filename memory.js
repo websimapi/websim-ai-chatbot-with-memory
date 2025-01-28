@@ -1,17 +1,24 @@
 export class ChatMemory {
   constructor() {
     this.storageKey = 'chatbot_memories';
-    this.memories = this.loadMemories();
+    // Ensure memories is properly initialized from localStorage
+    const storedMemories = localStorage.getItem(this.storageKey);
+    this.memories = storedMemories ? JSON.parse(storedMemories) : [];
     this.pendingDeletion = null;
   }
 
   loadMemories() {
+    // Always get fresh data from localStorage
     const stored = localStorage.getItem(this.storageKey);
     return stored ? JSON.parse(stored) : [];
   }
 
   saveMemories() {
-    localStorage.setItem(this.storageKey, JSON.stringify(this.memories));
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(this.memories));
+    } catch (error) {
+      console.error('Error saving memories to localStorage:', error);
+    }
   }
 
   async storeMemory(userMessage, botResponse, category = 'general') {
@@ -22,7 +29,9 @@ export class ChatMemory {
       category
     };
     
+    // Update the in-memory array
     this.memories.push(memory);
+    // Persist to localStorage
     this.saveMemories();
   }
 

@@ -6,17 +6,19 @@ import { CodeManager } from './code-manager.js';
 
 class ChatBot {
   constructor() {
+    // Initialize settings first since other components depend on it
     this.settings = new Settings();
+    
+    // Initialize core components
     this.memory = new ChatMemory();
     this.speech = new SpeechHandler(this.settings);
     this.artifactRenderer = new ArtifactRenderer();
     this.codeManager = new CodeManager();
-    this.chatHistory = document.getElementById('chatHistory');
-    this.userInput = document.getElementById('userInput');
-    this.sendBtn = document.getElementById('sendBtn');
-    this.toggleInput = document.getElementById('requestModeToggle');
-    this.ttsToggle = document.getElementById('ttsToggle');
     
+    // Wait for DOM to be ready before getting elements
+    this.initializeDOMElements();
+    
+    // Setup remaining state
     this.setupEventListeners();
     this.conversationContext = [];
     this.replyingToMessage = null;
@@ -26,7 +28,23 @@ class ChatBot {
     this.requestMode = this.settings.getSetting('requestMode') || 'single';
     this.lastRequestTime = 0;
     this.REQUEST_DELAY = 3000; // 3 seconds between requests
+    
+    // Initialize UI state
     this.initializeRequestMode();
+  }
+
+  initializeDOMElements() {
+    // Get DOM elements after document is ready
+    this.chatHistory = document.getElementById('chatHistory');
+    this.userInput = document.getElementById('userInput');
+    this.sendBtn = document.getElementById('sendBtn');
+    this.toggleInput = document.getElementById('requestModeToggle');
+    this.ttsToggle = document.getElementById('ttsToggle');
+    
+    // Verify all elements exist
+    if (!this.chatHistory || !this.userInput || !this.sendBtn || !this.toggleInput || !this.ttsToggle) {
+      throw new Error('Required DOM elements not found');
+    }
   }
 
   initializeRequestMode() {
@@ -119,8 +137,8 @@ class ChatBot {
     // Check if we're waiting for deletion confirmation
     if (this.confirmationActive) {
       if (userMessage.toLowerCase() === 'confirm') {
-        this.memory.confirmDeletion(true);
-        this.addMessageToChat('Memories deleted successfully.', 'bot');
+        const success = this.memory.confirmDeletion(true);
+        this.addMessageToChat(success ? 'Memories deleted successfully.' : 'No memories to delete.', 'bot');
         this.confirmationActive = false;
       } else {
         this.memory.confirmDeletion(false);
@@ -468,6 +486,11 @@ class ChatBot {
   }
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-  new ChatBot();
+// Wait for DOM to be fully loaded before initializing
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    new ChatBot();
+  } catch (error) {
+    console.error('Error initializing ChatBot:', error);
+  }
 });
