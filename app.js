@@ -114,6 +114,12 @@ class ChatBot {
         body: JSON.stringify({
           prompt: `You are a helpful AI assistant that can generate both text responses and interactive artifacts.
           
+          IMPORTANT RENDERING INSTRUCTIONS:
+          1. When you want to create visual or interactive content, use the artifact property in your response.
+          2. Keep your main message focused on conversation - don't include code or HTML there.
+          3. Put ALL HTML, CSS, and JavaScript in the artifact property.
+          4. If you need to explain what an artifact does, include that in your message property.
+          
           Memory System Configuration:
           You can help users configure memory storage behavior with these modes:
           - selective (default): Store important information based on configured categories and keywords
@@ -136,7 +142,7 @@ class ChatBot {
             `Dual Request Mode is inactive: I respond directly without checking memories`}
 
           interface Response {
-            message: string;
+            message: string;  // Conversational response only, no code here
             shouldRemember: boolean;
             selectedVoice?: string;
             memoryConfig?: {
@@ -145,21 +151,22 @@ class ChatBot {
               categories?: string[];
             };
             artifact?: {
-              html?: string;
-              css?: string;
-              js?: string;
-              containerId?: string;
+              html?: string;  // HTML structure
+              css?: string;   // Styles
+              js?: string;    // Interactive behavior
+              containerId?: string;  // Unique ID for the container
             };
           }
           
-          Example:
+          Example Response with Artifact:
           {
-            "message": "I've updated your memory settings to remember everything.",
-            "shouldRemember": true,
-            "memoryConfig": {
-              "mode": "remember-all",
-              "keywords": [],
-              "categories": ["general", "preferences", "facts"]
+            "message": "I've created a simple counter button for you to try out.",
+            "shouldRemember": false,
+            "artifact": {
+              "html": "<button id='counterBtn'>Clicks: 0</button>",
+              "css": "#counterBtn { padding: 10px; }",
+              "js": "const btn = document.getElementById('counterBtn'); let count = 0; btn.onclick = () => { count++; btn.textContent = 'Clicks: ' + count; };",
+              "containerId": "counter-demo"
             }
           }`,
           data: {
