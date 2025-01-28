@@ -19,6 +19,7 @@ class ChatBot {
     
     this.setupEventListeners();
     this.conversationContext = [];
+    this.replyingToMessage = null;
     this.initializeToggles();
   }
 
@@ -54,7 +55,7 @@ class ChatBot {
     
     const countDisplay = document.createElement('div');
     countDisplay.className = 'char-count';
-    countDisplay.textContent = charCount;
+    countDisplay.textContent = this.formatCharCount(charCount);
     token.appendChild(countDisplay);
     
     const container = document.getElementById('tokenContainer');
@@ -66,6 +67,13 @@ class ChatBot {
     token.addEventListener('animationend', () => {
       container.removeChild(token);
     });
+  }
+
+  formatCharCount(count) {
+    if (count >= 1000) {
+      return (count / 1000).toFixed(1) + 'k';
+    }
+    return count.toString();
   }
 
   setupEventListeners() {
@@ -83,6 +91,20 @@ class ChatBot {
     this.ttsToggle.addEventListener('change', (e) => {
       this.settings.updateSetting('ttsEnabled', e.target.checked);
     });
+
+    this.chatHistory.addEventListener('click', (e) => {
+      if (e.target.classList.contains('reply-button')) {
+        const messageElement = e.target.closest('.message');
+        const messageText = messageElement.querySelector('.message-text').textContent;
+        this.handleReply(messageText);
+      }
+    });
+  }
+
+  handleReply(messageText) {
+    this.replyingToMessage = messageText;
+    this.userInput.placeholder = `Replying to: ${messageText.substring(0, 30)}...`;
+    this.userInput.focus();
   }
 
   async handleUserInput() {
@@ -91,10 +113,22 @@ class ChatBot {
 
     this.addMessageToChat(userMessage, 'user');
     this.userInput.value = '';
+    this.userInput.placeholder = 'Type your message...';
     
-    this.createFallingToken(userMessage.length);
+    // Create context with just the replied-to message if it exists
+    if (this.replyingToMessage) {
+      this.conversationContext = [
+        { role: 'assistant', content: this.replyingToMessage },
+        { role: 'user', content: userMessage }
+      ];
+    } else {
+      this.conversationContext.push({ role: 'user', content: userMessage });
+    }
+    
+    const contextString = JSON.stringify(this.conversationContext);
+    this.createFallingToken(contextString.length);
 
-    this.conversationContext.push({ role: 'user', content: userMessage });
+    this.createFallingToken(userMessage.length);
 
     const isDualMode = this.settings.getSetting('dualRequestMode');
     const isTtsEnabled = this.settings.getSetting('ttsEnabled');
@@ -136,6 +170,9 @@ class ChatBot {
       console.error('Error getting AI response:', error);
       this.addMessageToChat('Sorry, I encountered an error. Please try again.', 'bot');
     }
+    
+    // Reset reply state
+    this.replyingToMessage = null;
   }
 
   async getAIResponse(userMessage, relevantMemories, isDualMode) {
@@ -287,7 +324,26 @@ class ChatBot {
   addMessageToChat(message, sender) {
     const messageDiv = document.createElement('div');
     messageDiv.classList.add('message', `${sender}-message`);
-    messageDiv.textContent = message;
+    
+    const messageContent = document.createElement('div');
+    messageContent.classList.add('message-text');
+    messageContent.textContent = message;
+    messageDiv.appendChild(messageContent);
+    
+    const replyButton = document.createElement('button');
+    replyButton.classList.add('reply-button');
+    replyButton.innerHTML = '↩️';
+    replyButton.title = 'Reply to this message';
+    messageDiv.appendChild(replyButton);
+
+    if (this.replyingToMessage) {
+      messageDiv.classList.add('replied-to');
+      const replyContext = document.createElement('div');
+      replyContext.classList.add('reply-context');
+      replyContext.textContent = `↩️ ${this.replyingToMessage.substring(0, 50)}...`;
+      messageDiv.appendChild(replyContext);
+    }
+
     this.chatHistory.appendChild(messageDiv);
     this.chatHistory.scrollTop = this.chatHistory.scrollHeight;
   }

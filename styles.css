@@ -27,6 +27,48 @@ body {
   padding: 10px 15px;
   border-radius: 15px;
   max-width: 70%;
+  position: relative;
+}
+
+.message .reply-button {
+  position: absolute;
+  right: -30px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #f0f0f0;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.message:hover .reply-button {
+  opacity: 1;
+}
+
+.message.replied-to {
+  margin-top: 25px;
+}
+
+.reply-context {
+  position: absolute;
+  top: -20px;
+  left: 15px;
+  font-size: 0.8em;
+  color: #666;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2px 8px;
+  border-radius: 10px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .user-message {
