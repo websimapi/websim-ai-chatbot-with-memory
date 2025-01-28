@@ -2,7 +2,6 @@ import { ChatMemory } from './memory.js';
 import { SpeechHandler } from './speech.js';
 import { ArtifactRenderer } from './artifact-renderer.js';
 import { Settings } from './settings.js';
-import { ContentParser } from './content-parser.js';
 
 class ChatBot {
   constructor() {
@@ -57,27 +56,10 @@ class ChatBot {
       
       this.conversationContext.push({ role: 'assistant', content: response.message });
       
-      // Parse the response content
-      const parsedContent = ContentParser.extractContent(response.message);
+      this.addMessageToChat(response.message, 'bot');
       
-      if (parsedContent.hasCode) {
-        // Create and render the artifact
-        const validatedArtifact = ContentParser.validateArtifact(parsedContent.artifact);
-        const artifactElement = await this.artifactRenderer.render(validatedArtifact);
-        this.addArtifactToChat(artifactElement);
-        
-        // Speak the plain text if available
-        if (parsedContent.plainText) {
-          this.addMessageToChat(parsedContent.plainText, 'bot');
-          await this.speech.speak(parsedContent.plainText);
-        }
-      } else {
-        // Regular text message
-        this.addMessageToChat(response.message, 'bot');
-        await this.speech.speak(response.message);
-      }
+      await this.speech.speak(response.message);
 
-      // Handle memory storage
       if (response.shouldRemember) {
         const memoryConfig = this.settings.getMemoryConfig();
         const shouldStore = await this.memory.shouldStoreMemory(userMessage, response.message, memoryConfig);
@@ -87,10 +69,8 @@ class ChatBot {
         }
       }
 
-      // Handle any explicit artifacts in the response
       if (response.artifact) {
-        const validatedArtifact = ContentParser.validateArtifact(response.artifact);
-        const artifactElement = await this.artifactRenderer.render(validatedArtifact);
+        const artifactElement = await this.artifactRenderer.render(response.artifact);
         this.addArtifactToChat(artifactElement);
       }
 
