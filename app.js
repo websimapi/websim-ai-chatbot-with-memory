@@ -15,15 +15,53 @@ class ChatBot {
     this.userInput = document.getElementById('userInput');
     this.sendBtn = document.getElementById('sendBtn');
     this.toggleInput = document.getElementById('dualRequestToggle');
+    this.ttsToggle = document.getElementById('ttsToggle');
     
     this.setupEventListeners();
     this.conversationContext = [];
-    this.initializeToggle();
+    this.initializeToggles();
   }
 
-  initializeToggle() {
+  initializeToggles() {
     const isDualMode = this.settings.getSetting('dualRequestMode');
+    const isTtsEnabled = this.settings.getSetting('ttsEnabled');
+    
     this.toggleInput.checked = isDualMode;
+    this.ttsToggle.checked = isTtsEnabled;
+    this.updateRequestModeIcons(isDualMode);
+  }
+
+  updateRequestModeIcons(isDualMode) {
+    const singleW = document.querySelector('.single-w');
+    const dualW = document.querySelector('.dual-w');
+    
+    if (isDualMode) {
+      singleW.classList.add('active');
+      dualW.classList.add('active');
+    } else {
+      singleW.classList.add('active');
+      dualW.classList.remove('active');
+    }
+  }
+
+  createFallingToken() {
+    const token = document.createElement('div');
+    token.className = 'falling-token';
+    
+    const img = document.createElement('img');
+    img.src = 'w.png';
+    token.appendChild(img);
+    
+    const container = document.getElementById('tokenContainer');
+    const startX = Math.random() * 60; // Random position within container
+    token.style.right = `${startX}px`;
+    
+    container.appendChild(token);
+    
+    // Remove token after animation
+    token.addEventListener('animationend', () => {
+      container.removeChild(token);
+    });
   }
 
   setupEventListeners() {
@@ -31,8 +69,15 @@ class ChatBot {
     this.userInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') this.handleUserInput();
     });
+    
     this.toggleInput.addEventListener('change', (e) => {
-      this.settings.updateSetting('dualRequestMode', e.target.checked);
+      const isDualMode = e.target.checked;
+      this.settings.updateSetting('dualRequestMode', isDualMode);
+      this.updateRequestModeIcons(isDualMode);
+    });
+    
+    this.ttsToggle.addEventListener('change', (e) => {
+      this.settings.updateSetting('ttsEnabled', e.target.checked);
     });
   }
 
@@ -42,15 +87,18 @@ class ChatBot {
 
     this.addMessageToChat(userMessage, 'user');
     this.userInput.value = '';
+    this.createFallingToken();
 
     this.conversationContext.push({ role: 'user', content: userMessage });
 
     const isDualMode = this.settings.getSetting('dualRequestMode');
+    const isTtsEnabled = this.settings.getSetting('ttsEnabled');
     
     try {
       let relevantMemories = [];
       
       if (isDualMode) {
+        this.createFallingToken(); // Second token for dual mode
         relevantMemories = await this.memory.getRelevantMemories(userMessage);
       }
       
@@ -60,7 +108,9 @@ class ChatBot {
       
       this.addMessageToChat(response.message, 'bot');
       
-      await this.speech.speak(response.message);
+      if (isTtsEnabled) {
+        await this.speech.speak(response.message);
+      }
 
       if (response.shouldRemember) {
         const memoryConfig = this.settings.getMemoryConfig();

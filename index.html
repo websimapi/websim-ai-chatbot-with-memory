@@ -6,13 +6,28 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="settings-toggle">
-    <span>Dual Request Mode:</span>
-    <label class="toggle-switch">
-      <input type="checkbox" id="dualRequestToggle">
-      <span class="toggle-slider"></span>
-    </label>
+  <div class="settings-controls">
+    <div class="toggle-container">
+      <div class="toggle-icons" id="requestModeIcons">
+        <img src="w.png" alt="Single Request" class="single-w active">
+        <img src="w.png" alt="Dual Request" class="dual-w">
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="dualRequestToggle">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="toggle-container">
+      <div class="toggle-icons">
+        <span>TTS</span>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="ttsToggle" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
   </div>
+  <div class="token-container" id="tokenContainer"></div>
   <div class="chat-container">
     <div class="chat-history" id="chatHistory"></div>
     <div class="input-container">

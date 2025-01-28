@@ -84,6 +84,10 @@ export class SpeechHandler {
   }
 
   async speak(text) {
+    if (!this.settings.getSetting('ttsEnabled')) {
+      return;
+    }
+    
     // Cancel any ongoing speech
     this.cancel();
     
@@ -95,8 +99,6 @@ export class SpeechHandler {
       
       try {
         await this.speakSentence(sentence);
-        
-        // Small pause between sentences
         await new Promise(resolve => setTimeout(resolve, 100));
       } catch (error) {
         console.error('Error speaking sentence:', error);

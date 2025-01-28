@@ -9,6 +9,7 @@ export class Settings {
     return stored ? JSON.parse(stored) : {
       voice: null,
       dualRequestMode: true,
+      ttsEnabled: true,
       memoryMode: 'selective', 
       memoryKeywords: [], 
       memoryCategories: [], 
