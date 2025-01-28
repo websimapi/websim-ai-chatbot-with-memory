@@ -44,7 +44,7 @@ class ChatBot {
     }
   }
 
-  createFallingToken() {
+  createFallingToken(charCount) {
     const token = document.createElement('div');
     token.className = 'falling-token';
     
@@ -52,13 +52,17 @@ class ChatBot {
     img.src = 'w.png';
     token.appendChild(img);
     
+    const countDisplay = document.createElement('div');
+    countDisplay.className = 'char-count';
+    countDisplay.textContent = charCount;
+    token.appendChild(countDisplay);
+    
     const container = document.getElementById('tokenContainer');
-    const startX = Math.random() * 60; // Random position within container
+    const startX = Math.random() * 60; 
     token.style.right = `${startX}px`;
     
     container.appendChild(token);
     
-    // Remove token after animation
     token.addEventListener('animationend', () => {
       container.removeChild(token);
     });
@@ -87,7 +91,8 @@ class ChatBot {
 
     this.addMessageToChat(userMessage, 'user');
     this.userInput.value = '';
-    this.createFallingToken();
+    
+    this.createFallingToken(userMessage.length);
 
     this.conversationContext.push({ role: 'user', content: userMessage });
 
@@ -98,7 +103,8 @@ class ChatBot {
       let relevantMemories = [];
       
       if (isDualMode) {
-        this.createFallingToken(); // Second token for dual mode
+        const memoryContext = JSON.stringify(this.conversationContext);
+        this.createFallingToken(memoryContext.length);
         relevantMemories = await this.memory.getRelevantMemories(userMessage);
       }
       
@@ -212,7 +218,7 @@ class ChatBot {
             `Dual Request Mode is inactive: I respond directly without checking memories`}
 
           interface Response {
-            message: string;  // Conversational response only, no code here
+            message: string;  
             shouldRemember: boolean;
             selectedVoice?: string;
             memoryConfig?: {
@@ -221,10 +227,10 @@ class ChatBot {
               categories?: string[];
             };
             artifact?: {
-              html?: string;  // HTML structure
-              css?: string;   // Styles
-              js?: string;    // Interactive behavior
-              containerId?: string;  // Unique ID for the container
+              html?: string;  
+              css?: string;   
+              js?: string;    
+              containerId?: string;  
             };
             codeChanges?: {
               [filename: string]: string;
@@ -295,7 +301,6 @@ class ChatBot {
   }
 }
 
-// Initialize the chatbot when the page loads
 window.addEventListener('DOMContentLoaded', () => {
   new ChatBot();
 });
