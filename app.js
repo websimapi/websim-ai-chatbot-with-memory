@@ -20,6 +20,7 @@ class ChatBot {
     this.setupEventListeners();
     this.conversationContext = [];
     this.replyingToMessage = null;
+    this.confirmationActive = false;
     this.initializeToggles();
   }
 
@@ -111,6 +112,21 @@ class ChatBot {
     const userMessage = this.userInput.value.trim();
     if (!userMessage) return;
 
+    // Check if we're waiting for deletion confirmation
+    if (this.confirmationActive) {
+      if (userMessage.toLowerCase() === 'confirm') {
+        this.memory.confirmDeletion(true);
+        this.addMessageToChat('Memories deleted successfully.', 'bot');
+        this.confirmationActive = false;
+      } else {
+        this.memory.confirmDeletion(false);
+        this.addMessageToChat('Deletion cancelled.', 'bot');
+        this.confirmationActive = false;
+      }
+      this.userInput.value = '';
+      return;
+    }
+
     this.addMessageToChat(userMessage, 'user');
     this.userInput.value = '';
     this.userInput.placeholder = 'Type your message...';
@@ -171,6 +187,47 @@ class ChatBot {
       this.addMessageToChat('Sorry, I encountered an error. Please try again.', 'bot');
     }
     
+    // Add check for memory deletion requests
+    if (userMessage.toLowerCase().includes('delete') || 
+        userMessage.toLowerCase().includes('remove') || 
+        userMessage.toLowerCase().includes('clear')) {
+      const memorySelections = await this.memory.getMemorySelections(userMessage);
+      
+      if (memorySelections.matches === 'ALL') {
+        this.memory.setPendingDeletion('ALL');
+        this.addMessageToChat('Are you sure you want to delete ALL memories? Type "confirm" to proceed or any other text to cancel.', 'bot');
+        this.confirmationActive = true;
+        this.userInput.value = '';
+        return;
+      }
+      
+      if (memorySelections.matches.length === 0) {
+        this.addMessageToChat('I couldn\'t find any memories matching your request.', 'bot');
+        this.userInput.value = '';
+        return;
+      }
+
+      if (memorySelections.isAmbiguous) {
+        let message = memorySelections.suggestedPrompt + '\n\n';
+        memorySelections.matches.forEach((memory, index) => {
+          message += `${index + 1}. ${this.memory.getMemoryPreview(memory)}\n`;
+        });
+        message += '\nPlease specify which memory to delete by mentioning its number or more specific details.';
+        this.addMessageToChat(message, 'bot');
+      } else {
+        const memoriesPreview = memorySelections.matches.map(memory => 
+          this.memory.getMemoryPreview(memory)
+        ).join('\n');
+        
+        this.memory.setPendingDeletion(memorySelections.matches);
+        this.addMessageToChat(`Are you sure you want to delete the following memories?\n\n${memoriesPreview}\n\nType "confirm" to proceed or any other text to cancel.`, 'bot');
+        this.confirmationActive = true;
+      }
+      
+      this.userInput.value = '';
+      return;
+    }
+
     // Reset reply state
     this.replyingToMessage = null;
   }
@@ -293,7 +350,7 @@ class ChatBot {
             codebase: codebase
           }
         }),
-      });
+      };
       
       const result = await response.json();
       

@@ -2,6 +2,7 @@ export class ChatMemory {
   constructor() {
     this.storageKey = 'chatbot_memories';
     this.memories = this.loadMemories();
+    this.pendingDeletion = null;
   }
 
   loadMemories() {
@@ -126,6 +127,90 @@ export class ChatMemory {
       console.error('Error getting relevant memories:', error);
       return [];
     }
+  }
+
+  async getMemorySelections(query) {
+    try {
+      const response = await fetch('/api/ai_completion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: `Given the user's query about which memories to delete, analyze the stored memories and identify potential matches.
+          If the query is clear about which memory/memories to delete, return those.
+          If the query is ambiguous, return multiple potential matches for user selection.
+          If the query indicates deleting all memories, return "ALL".
+          
+          interface Response {
+            matches: {
+              id: number;
+              userMessage: string;
+              botResponse: string;
+              timestamp: number;
+            }[] | "ALL";
+            isAmbiguous: boolean;
+            suggestedPrompt?: string;
+          }
+          
+          Example:
+          {
+            "matches": [
+              {
+                "id": 1,
+                "userMessage": "What's your favorite color?",
+                "botResponse": "I like blue",
+                "timestamp": 1678234567890
+              }
+            ],
+            "isAmbiguous": true,
+            "suggestedPrompt": "I found multiple memories about colors. Which one would you like to delete?"
+          }
+          `,
+          data: {
+            query: query,
+            memories: this.memories
+          }
+        }),
+      });
+      
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Error analyzing memory deletion request:', error);
+      return { matches: [], isAmbiguous: false };
+    }
+  }
+
+  confirmDeletion(confirmed) {
+    if (!this.pendingDeletion) return false;
+    
+    if (confirmed) {
+      if (this.pendingDeletion === 'ALL') {
+        this.clearMemories();
+      } else if (Array.isArray(this.pendingDeletion)) {
+        this.memories = this.memories.filter(memory => 
+          !this.pendingDeletion.some(pending => 
+            pending.timestamp === memory.timestamp && 
+            pending.userMessage === memory.userMessage
+          )
+        );
+        this.saveMemories();
+      }
+    }
+    
+    this.pendingDeletion = null;
+    return true;
+  }
+
+  setPendingDeletion(memories) {
+    this.pendingDeletion = memories;
+  }
+
+  getMemoryPreview(memory) {
+    const date = new Date(memory.timestamp).toLocaleDateString();
+    return `[${date}] User: "${memory.userMessage.substring(0, 30)}${memory.userMessage.length > 30 ? '...' : ''}"`;
   }
 
   // Clear all memories
