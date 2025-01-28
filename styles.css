@@ -159,6 +159,13 @@ body {
   opacity: 1;
 }
 
+.toggle-icons span {
+  font-size: 20px;
+  line-height: 24px;
+  margin-right: 10px;
+  user-select: none;
+}
+
 .toggle-switch {
   position: relative;
   display: inline-block;
