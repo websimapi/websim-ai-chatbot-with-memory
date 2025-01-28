@@ -251,17 +251,34 @@ class ChatBot {
                          userMessage.toLowerCase().includes('modify') ||
                          userMessage.toLowerCase().includes('change code');
 
-      // Get all memories if this is a memory-related query
-      const allMemories = isMemoryQuery ? this.memory.loadMemories() : [];
+      // Get all memories and memory configuration for context
+      const allMemories = this.memory.loadMemories();
       const memoryConfig = this.settings.getMemoryConfig();
+      const currentMemoryState = {
+        totalMemories: allMemories.length,
+        memoryConfig: memoryConfig,
+        memories: allMemories,
+        memoryManagement: {
+          storageKey: this.memory.storageKey,
+          availableFunctions: [
+            'loadMemories()',
+            'storeMemory(userMessage, botResponse, category)',
+            'clearMemories()',
+            'clearMemoriesByCategory(category)',
+            'getMemoriesByCategory(category)',
+            'getRelevantMemories(userMessage)',
+            'getMemorySelections(query)'
+          ]
+        }
+      };
+
       const codebase = isCodeQuery ? this.codeManager.getFileContents() : null;
 
       const currentSettings = {
         voice: this.settings.getSetting('voice'),
         dualRequestMode: isDualMode,
         availableVoices: voiceRelated ? this.speech.getAllVoices() : null,
-        allStoredMemories: allMemories,
-        memoryConfig: memoryConfig
+        memorySystem: currentMemoryState
       };
 
       const response = await fetch('/api/ai_completion', {
@@ -273,58 +290,54 @@ class ChatBot {
         body: JSON.stringify({
           prompt: `You are a helpful AI assistant that can generate both text responses and interactive artifacts.
           
+          You have full access to the memory system with the following capabilities:
+          1. Access all stored memories
+          2. View and modify memory configuration
+          3. Store new memories
+          4. Clear specific or all memories
+          5. Search and retrieve relevant memories
+          
+          Current Memory System Status:
+          Storage Key: ${currentMemoryState.memoryManagement.storageKey}
+          Total Stored Memories: ${currentMemoryState.totalMemories}
+          Memory Configuration: ${JSON.stringify(memoryConfig, null, 2)}
+          Available Memory Functions: ${JSON.stringify(currentMemoryState.memoryManagement.availableFunctions, null, 2)}
+          
+          ${isMemoryQuery ? `
+          All Current Memories:
+          ${JSON.stringify(currentMemoryState.memories, null, 2)}
+          ` : ''}
+          
           ${isCodeQuery ? `
-          You have access to the full codebase. You can:
-          1. Explain how specific parts of the code work
-          2. Modify code when requested
-          3. Add new features through code changes
-          
-          If code changes are requested, include them in the codeChanges property.
-          
-          Current codebase:
+          Current Codebase:
           ${JSON.stringify(codebase, null, 2)}
           ` : ''}
           
-          ${isMemoryQuery ? `
-          Current Memory System Status:
-          1. Memory Mode: ${memoryConfig.mode}
-          2. Memory Keywords: ${JSON.stringify(memoryConfig.keywords)}
-          3. Memory Categories: ${JSON.stringify(memoryConfig.categories)}
-          4. Total Stored Memories: ${allMemories.length}
-          
-          All stored memories:
-          ${JSON.stringify(allMemories, null, 2)}
-          ` : ''}
-          
-          IMPORTANT RENDERING INSTRUCTIONS:
-          1. When you want to create visual or interactive content, use the artifact property in your response.
-          2. Keep your main message focused on conversation - don't include code or HTML there.
-          3. Put ALL HTML, CSS, and JavaScript in the artifact property.
-          4. If you need to explain what an artifact does, include that in your message property.
-          
-          Memory System Configuration:
-          You can help users configure memory storage behavior with these modes:
+          Memory System Configuration Options:
           - selective (default): Store important information based on configured categories and keywords
           - remember-all: Store all meaningful interactions
           - manual-only: Only store memories when explicitly requested
           
-          Current memory settings:
-          ${JSON.stringify(memoryConfig, null, 2)}
+          For memory queries, you can:
+          1. List all stored memories
+          2. Search specific memories
+          3. Modify memory settings
+          4. Delete specific or all memories
+          5. Explain current memory configuration
           
-          If the user asks about changing memory settings, you can:
-          1. Set the memory mode
-          2. Define keywords to trigger memory storage
-          3. Set up categories for organizing memories
-          4. Explain current memory settings
+          When handling memory deletion:
+          1. If request is clear, set up confirmation
+          2. If request is ambiguous, list relevant memories
+          3. Allow for both specific and bulk deletion
           
-          When configuring memories, return memoryConfig in the response.
-          
-          ${isDualMode ? 
-            'Dual Request Mode is active: I analyze past memories before responding' : 
-            'Dual Request Mode is inactive: I respond directly without checking memories'}
+          IMPORTANT RENDERING INSTRUCTIONS:
+          1. When creating visual/interactive content, use the artifact property
+          2. Keep main message conversational - no code/HTML there
+          3. Put ALL HTML, CSS, and JavaScript in the artifact property
+          4. Explain artifacts in the message property
 
           interface Response {
-            message: string;  
+            message: string;
             shouldRemember: boolean;
             selectedVoice?: string;
             memoryConfig?: {
@@ -333,32 +346,21 @@ class ChatBot {
               categories?: string[];
             };
             artifact?: {
-              html?: string;  
-              css?: string;   
-              js?: string;    
-              containerId?: string;  
+              html?: string;
+              css?: string;
+              js?: string;
+              containerId?: string;
             };
             codeChanges?: {
               [filename: string]: string;
             };
-          }
-          
-          Example Response with Artifact:
-          {
-            "message": "I've created a simple counter button for you to try out.",
-            "shouldRemember": false,
-            "artifact": {
-              "html": "<button id='counterBtn'>Clicks: 0</button>",
-              "css": "#counterBtn { padding: 10px; }",
-              "js": "const btn = document.getElementById('counterBtn'); let count = 0; btn.onclick = () => { count++; btn.textContent = 'Clicks: ' + count; };",
-              "containerId": "counter-demo"
-            }
           }`,
           data: {
             message: userMessage,
             context: this.conversationContext,
             relevantMemories: relevantMemories,
             currentSettings: currentSettings,
+            memorySystem: currentMemoryState,
             codebase: codebase
           }
         })
